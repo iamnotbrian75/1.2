@@ -1,0 +1,14 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Titan runtime data (personal)
+titan_profile.json
+titan_notes.txt
+titan_memory.json
+titan_memory.json.tmp
+
+# Big downloads
+vosk-model/
+*.zip

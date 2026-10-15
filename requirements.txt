@@ -1,0 +1,4 @@
+psutil
+pyttsx3
+vosk
+sounddevice
