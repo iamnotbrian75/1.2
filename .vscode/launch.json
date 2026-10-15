@@ -1,0 +1,33 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Titan (typed)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/T.v1.1.py",
+            "args": [
+                "--text"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Titan (voice)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/T.v1.1.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Titan (typed, no speech)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/T.v1.1.py",
+            "args": [
+                "--text",
+                "--silent"
+            ],
+            "console": "integratedTerminal"
+        }
+    ]
+}
