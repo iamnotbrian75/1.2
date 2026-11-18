@@ -12,3 +12,4 @@ titan_memory.json.tmp
 # Big downloads
 vosk-model/
 *.zip
+voices/*.onnx

@@ -31,7 +31,10 @@ Titan/
 
 When voice activation is enabled, say "Titan", wait for its acknowledgement, then
 speak your command. Wake-word detection and speech recognition run locally using
-the Vosk model. Use the dashboard's WAKE WORD button to pause or resume listening.
+the Vosk model. The wake-word listener uses unrestricted recognition and only
+triggers when Vosk recognizes "Titan" as a separate word; it does not force all
+speech into that single-word result. Use the dashboard's WAKE WORD button to
+pause or resume listening.
 To remove automatic startup, run `install_titan_startup.ps1 -Uninstall`.
 To disable phone access while keeping local wake-word startup, rerun
 `.\install_titan_startup.ps1` without `-EnablePhoneAccess`.
@@ -48,7 +51,8 @@ project, use the explicit `code in <folder> -- <task>` form above.
 
 The local `qwen2.5-coder:3b` model can list and read UTF-8 project files, make
 bounded file edits, back up files before replacing them, and run a detected
-standard test suite. General chat continues to use `llama3.2:3b`. The coding
+standard test suite. General chat and command routing use the same model, so
+Ollama never has to hold or swap two models on an 8 GB laptop. The coding
 helper is restricted to the named folder under your Windows user directory;
 it cannot delete files, read common credential files, or run arbitrary shell
 commands. Backups are stored in `.titan-backups`. Review its changes: this
@@ -60,9 +64,49 @@ to save a fact, "what do you remember about me?" to review memories, or
 "forget ..." / "forget everything" to remove them.
 
 Saved facts are kept in the signed-in user's note in the Obsidian `Titan Brain`
-folder. The `Projects.md` note is included as project background for local AI
-chat; Titan does not scan the rest of the vault. Because the vault is under
-OneDrive Documents, its contents may sync if OneDrive sync is enabled.
+folder. The `Projects.md` note remains available as project background, and
+relevant sections from Markdown notes under `Knowledge/` and `Projects/` are
+searched for each chat request. Retrieval is keyword-based, read-only, and
+limited to three matching note sections and 4,200 characters; personal root
+memory notes are not part of the knowledge search. Treat retrieved note text as
+reference material, not instructions. Because the vault is under OneDrive
+Documents, its contents may sync if OneDrive sync is enabled.
+
+Add topic notes under `Titan Brain\Knowledge\` and project notes under
+`Titan Brain\Projects\`. Starter notes for Python, cybersecurity, Linux,
+artificial intelligence, and Arduino, plus Titan and ANPR projects, are in the
+detected Obsidian Brain folder. For GitHub publishing, run
+`.\sync_to_github.ps1` from PowerShell after reviewing your changes. It commits
+and pushes only allowlisted Titan source, tests, and documentation to `origin`;
+it does not include profile, memory, Obsidian vault, or screenshot files.
+
+## Restricted REA website inspection
+
+REA 6.7.0 is configured as a VS Code MCP server. Restart VS Code to load it.
+REA's VS Code integration exposes its broader reverse-engineering toolkit;
+use REA's exact-origin browser filters and dedicated browser instructions
+when inspecting a page directly from VS Code.
+
+Titan itself only starts page inspection for an explicit analysis request, for
+example `Use REA to reverse engineer this webpage https://example.com/`. If you
+ask to analyze a website without naming one, Titan remembers that it is waiting
+for the target; a reply such as `Instagram` continues the REA analysis instead
+of becoming an open-site command. Say `cancel` to abandon the request, or give
+another explicit command to change tasks. This pending request lasts only for
+the current Titan process. Titan opens the page in a separate Chrome/Edge
+profile with sync and extensions disabled, then uses REA for passive inspection
+only. The URL must be HTTP(S), have no query or fragment, and resolve to a
+public host or loopback development server
+(`localhost`, `127.0.0.1`, or `::1`). Titan does not use your everyday signed-in
+browser profile, follow cross-origin redirects, click controls, submit forms,
+or browse pages on its own. Page evidence is treated as untrusted input and
+network query values and URL credentials are removed before the local model
+receives the findings. Titan includes bounded page metadata, DOM structure and
+script URLs in its summary context. Network observation
+starts after REA attaches, so it cannot report requests that happened earlier.
+The page is rendered normally in the isolated browser; its scripts run as they
+would in a regular browser. Close Titan's separate REA browser window when
+finished.
 
 The identity file can contain multiple users; existing single-user profiles
 are supported and preserved when additional users are added.
@@ -116,10 +160,34 @@ expires after two minutes and is cancelled if you send a different command.
   change in `TITAN_CHANGELOG.md`; restart Titan before expecting its running
   process to load self-updated code.
 
+## Voice and performance
+
+- Titan speaks with a local Piper neural voice (`titan_voice.py`). Voice files
+  live in `voices/` as `<name>.onnx` plus `<name>.onnx.json`; the default is
+  the British `en_GB-alan-medium` (download it from
+  https://huggingface.co/rhasspy/piper-voices). Set the `TITAN_VOICE`
+  environment variable to switch, for example `en_US-john-medium` or
+  `en_US-lessac-medium`.
+  If Piper is unavailable Titan falls back to pyttsx3, then text only.
+- AI chat replies stream: each sentence is spoken (and shown in the dashboard)
+  as soon as the model writes it, instead of after the whole answer.
+- Model settings (environment variables): `TITAN_CHAT_MODEL` (default
+  `qwen2.5-coder:3b`, used for routing and chat), `TITAN_CODER_MODEL` (default
+  `qwen2.5-coder:3b`) and `TITAN_KEEP_ALIVE` (default `5m`: how long the model
+  stays in RAM after a reply). On the 8 GB laptop, `gemma4:e4b` routed most
+  accurately (22/22 vs 21/22) but ran at half the speed and needs 6.6 GB.
+- Recommended Ollama settings for 8 GB RAM: `OLLAMA_MAX_LOADED_MODELS=1`,
+  `OLLAMA_NUM_PARALLEL=2`, `OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=q8_0`.
+  Two slots let the router prompt and the chat prompt each stay cached; with one
+  slot they evict each other and every reply reprocesses ~900 tokens (8-13 s).
+- Titan talks to Ollama on `127.0.0.1`, not `localhost`: on Windows `localhost`
+  adds about 2 seconds to every request while IPv6 times out.
+
 ## Needs
 
 - Python 3.10+ (3.12 recommended)
-- Ollama running with `ollama pull llama3.2:3b`
+- Ollama running with `ollama pull qwen2.5-coder:3b`
+- A Piper voice in `voices/` (optional; see above)
 
 Tv1 docs
 #!/usr/bin/env python3

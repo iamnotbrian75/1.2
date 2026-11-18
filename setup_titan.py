@@ -21,13 +21,13 @@ IS_WINDOWS = sys.platform.startswith("win")
 VENV_PYTHON = VENV_DIR / ("Scripts/python.exe" if IS_WINDOWS else "bin/python")
 
 MIN_PYTHON = (3, 10)
-PACKAGES = ["psutil", "pyttsx3", "vosk", "sounddevice"]
+PACKAGES = ["psutil", "pyttsx3", "vosk", "sounddevice", "piper-tts"]
 
 VOSK_URL = "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
 VOSK_FOLDER_IN_ZIP = "vosk-model-small-en-us-0.15"
 VOSK_DIR = ROOT / "vosk-model"
 
-OLLAMA_MODEL = "llama3.2:3b"
+OLLAMA_MODEL = "qwen2.5-coder:3b"
 
 FOLDERS = [".vscode", "dashboard", "arduino"]
 
@@ -84,7 +84,7 @@ Titan/
 ## Needs
 
 - Python 3.10+ (3.12 recommended)
-- Ollama running with `ollama pull llama3.2:3b`
+- Ollama running with `ollama pull qwen2.5-coder:3b`
 """
 
 VSCODE_LAUNCH = {
@@ -289,7 +289,7 @@ def self_test():
         return
     code = (
         "import importlib\n"
-        "for name in ['psutil', 'pyttsx3', 'vosk', 'sounddevice']:\n"
+        "for name in ['psutil', 'pyttsx3', 'vosk', 'sounddevice', 'piper']:\n"
         "    try:\n"
         "        importlib.import_module(name)\n"
         "        print('OK   ' + name)\n"

@@ -11,8 +11,9 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL = "qwen2.5-coder:3b"
+OLLAMA_URL = "http://127.0.0.1:11434/api/chat"   # not "localhost": avoids a 2s IPv6 delay
+MODEL = os.environ.get("TITAN_CODER_MODEL", "qwen2.5-coder:3b")
+KEEP_ALIVE = os.environ.get("TITAN_KEEP_ALIVE", "5m")
 MAX_ROUNDS = 8
 MAX_FILES = 4
 MAX_FILE_BYTES = 64_000
@@ -24,9 +25,12 @@ CHANGELOG_PATH = Path(__file__).resolve().parent / "TITAN_CHANGELOG.md"
 SELF_UPDATE_PATHS = {
     "T.v1.1.py",
     "titan_persona.py",
+    "titan_knowledge.py",
     "titan_skills.py",
     "titan_coder.py",
     "titan_diagnostics.py",
+    "titan_rea.py",
+    "titan_voice.py",
     "dashboard/server.py",
     "dashboard/index.html",
     "README.md",
@@ -572,7 +576,7 @@ def run_project_task(
         payload = json.dumps({
             "model": model,
             "stream": False,
-            "keep_alive": "10m",
+            "keep_alive": KEEP_ALIVE,
             "options": {"temperature": 0.1, "num_predict": 900, "num_ctx": 4096},
             "messages": messages,
             "tools": TOOLS,

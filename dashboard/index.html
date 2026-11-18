@@ -308,9 +308,8 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
   }
   if (synth) { pickVoice(); synth.onvoiceschanged = pickVoice; } else { pickVoice(); }
 
-  function speak(text) {
-    if (!synth || state.muted || !state.voice) return;
-    synth.cancel();
+  function speakBrowser(text) {
+    if (!synth || !state.voice) return;
     const u = new SpeechSynthesisUtterance(text);
     u.voice = state.voice; u.rate = 0.94; u.pitch = 1.0;
     u.onstart = () => { state.speaking = true; };
@@ -318,19 +317,112 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
     synth.speak(u);
   }
 
-  // ---------- C6: sending commands ----------
+  // Piper neural voice: server.py turns each sentence into WAV audio (/api/tts).
+  // Sentences are fetched as soon as they arrive and played strictly in order.
+  // If Piper is unavailable, Titan falls back to the browser's offline voice.
+  const speech = { queue: [], playing: false, audio: null, finish: null, piper: true, generation: 0 };
+  async function fetchSpeech(text) {
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Titan-Token": state.token || "" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) return null;
+      return URL.createObjectURL(await res.blob());
+    } catch (e) { return null; }
+  }
+  async function playQueue() {
+    if (speech.playing) return;
+    speech.playing = true;
+    const gen = speech.generation;
+    while (speech.queue.length && gen === speech.generation) {
+      const item = speech.queue.shift();
+      const url = await item.audio;
+      if (gen !== speech.generation) { if (url) URL.revokeObjectURL(url); break; }
+      if (!url) {
+        speech.piper = false;
+        setChip("voice", "warn", "PIPER OFF · BROWSER VOICE");
+        speakBrowser(item.text);
+        continue;
+      }
+      setChip("voice", "ok", "PIPER NEURAL");
+      state.speaking = true;
+      await new Promise((resolve) => {
+        const a = new Audio(url); speech.audio = a; speech.finish = resolve;
+        a.onended = a.onerror = resolve;
+        a.play().catch(resolve);
+      });
+      URL.revokeObjectURL(url);
+    }
+    if (gen === speech.generation) {      // a newer reply may already own the player
+      state.speaking = false; speech.playing = false; speech.audio = null;
+    }
+  }
+  function stopSpeech() {
+    speech.generation++; speech.queue = [];
+    if (speech.audio) speech.audio.pause();
+    if (speech.finish) speech.finish();   // pause() never fires "ended"
+    speech.audio = null; speech.finish = null;
+    speech.playing = false;
+    if (synth) synth.cancel();
+    state.speaking = false;
+  }
+  function speakQueued(text) {           // add one sentence after what is already queued
+    if (state.muted || !text) return;
+    if (!speech.piper) { speakBrowser(text); return; }
+    speech.queue.push({ text, audio: fetchSpeech(text) });
+    playQueue();
+  }
+  function speak(text) {                 // interrupt and say this instead
+    stopSpeech();
+    speakQueued(text);
+  }
+
+  // ---------- C6: sending commands (reply streams in sentence by sentence) ----------
   async function send(text) {
     text = text.trim();
     if (!text || state.thinking) return;
     history.push(text); histPos = history.length;
     log("you", text);
+    stopSpeech();
     state.thinking = true;
+    let liveRow = null, liveText = "";
     try {
-      const r = await api("/api/chat", { text });
-      if (r.status === 401) { relogin("Session expired. Please verify again."); return; }
-      if (!r.ok) { log("err", r.data.error || "Request failed."); return; }
-      log("titan", r.data.reply); speak(r.data.speech || r.data.reply);
-      if (r.data.keep_running === false) shutdown();
+      const res = await fetch("/api/chat-stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Titan-Token": state.token || "" },
+        body: JSON.stringify({ text }),
+      });
+      if (res.status === 401) { relogin("Session expired. Please verify again."); return; }
+      if (!res.ok) {
+        let data = {}; try { data = await res.json(); } catch (e) { /* not JSON */ }
+        log("err", data.error || "Request failed."); return;
+      }
+      const reader = res.body.getReader(), decoder = new TextDecoder();
+      let buffer = "", done = null;
+      while (!done) {
+        const { value, done: ended } = await reader.read();
+        if (ended) break;
+        buffer += decoder.decode(value, { stream: true });
+        let nl;
+        while ((nl = buffer.indexOf("\n")) >= 0) {
+          const line = buffer.slice(0, nl).trim(); buffer = buffer.slice(nl + 1);
+          if (!line) continue;
+          const event = JSON.parse(line);
+          if (event.sentence) {
+            if (!liveRow) { log("titan", "", true); liveRow = logEl.lastElementChild.querySelector(".msg"); }
+            liveText += (liveText ? " " : "") + event.sentence;
+            liveRow.textContent = liveText; scrollLog();
+            speakQueued(event.sentence);
+          } else if (event.done) { done = event; }
+        }
+      }
+      if (!done) { log("err", "The reply was cut off."); return; }
+      if (done.error) { log("err", done.error); return; }
+      if (liveRow) liveRow.textContent = done.reply;
+      else { log("titan", done.reply); speakQueued(done.speech || done.reply); }
+      if (done.keep_running === false) shutdown();
     } catch (e) {
       log("err", "Lost contact with the Titan server. Is the terminal still running?");
     } finally { state.thinking = false; }
@@ -343,8 +435,7 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
       return;
     }
     if (state.listening || state.thinking) return;
-    if (synth) synth.cancel();
-    state.speaking = false;
+    stopSpeech();
     state.listening = true; micBtn.classList.add("on");
     log("sys", "Listening… speak now (up to 15 seconds).");
     let heard = "";
@@ -402,7 +493,7 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
       if (!r.ok) throw new Error("bad status");
       for (const alert of r.data.alerts || []) {
         log("titan", alert.text, true);
-        speak(alert.text);
+        speakQueued(alert.text);
       }
     } catch (e) { log("err", "Could not check Titan's reminders."); }
   }
@@ -494,7 +585,7 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
     state.muted = !state.muted;
     muteBtn.textContent = state.muted ? "VOICE OFF" : "VOICE ON";
     muteBtn.classList.toggle("muted", state.muted);
-    if (state.muted && synth) { synth.cancel(); state.speaking = false; }
+    if (state.muted) stopSpeech();
   });
 
   // ---------- C11: the arc reactor (canvas animation) ----------

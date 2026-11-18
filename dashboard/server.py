@@ -25,6 +25,7 @@ import argparse
 import importlib.util
 import json
 import queue
+import re
 import secrets
 import sys
 import threading
@@ -48,9 +49,15 @@ HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 MAX_BODY_BYTES = 10_000
 MAX_TEXT_CHARS = 500
+MAX_SPEECH_CHARS = 1500
 MAX_LOGIN_ATTEMPTS = 3
 LOCKOUT_SECONDS = 30
-OLLAMA_TAGS_URL = "http://localhost:11434/api/tags"
+OLLAMA_TAGS_URL = "http://127.0.0.1:11434/api/tags"   # not "localhost": avoids a 2s IPv6 delay
+
+
+def is_wake_word(text):
+    """Match Titan as a recognized word, not an approximate substring."""
+    return "titan" in re.findall(r"[a-z0-9]+", str(text).casefold())
 
 
 # =============================================================================
@@ -149,7 +156,6 @@ class WakeWordAssistant:
             core.SetLogLevel(-1)
             model = core.Model(str(core.VOSK_MODEL_DIR))
             recognizer = core.KaldiRecognizer(model, core.SAMPLE_RATE)
-            recognizer.SetGrammar(json.dumps(["titan"]))
             audio = queue.Queue(maxsize=32)
 
             def on_audio(indata, frames, time_info, status):
@@ -180,7 +186,7 @@ class WakeWordAssistant:
                 if not recognizer.AcceptWaveform(data):
                     continue
                 heard = json.loads(recognizer.Result()).get("text", "").strip()
-                if heard != "titan":
+                if not is_wake_word(heard):
                     continue
 
                 while not audio.empty():
@@ -213,12 +219,10 @@ class WakeWordAssistant:
                 if not command:
                     command = json.loads(command_recognizer.FinalResult()).get("text", "").strip()
                 if command:
-                    reply, _ = core.titan_handle(command)
-                    voice.say(reply)
+                    core.respond(voice, command)    # speaks sentence by sentence as the reply streams
                 with self._lock:
                     self._status = "LISTENING FOR TITAN" if dashboard_opened else "LISTENING FOR TITAN · BROWSER DID NOT OPEN"
                 recognizer = core.KaldiRecognizer(model, core.SAMPLE_RATE)
-                recognizer.SetGrammar(json.dumps(["titan"]))
                 while not audio.empty():
                     try:
                         audio.get_nowait()
@@ -329,25 +333,47 @@ def api_stats():
     return 200, stats
 
 
-def api_chat(body):
+def _chat_text(body):
+    """Return (text, None) or (None, (status, error_dict))."""
     text = str(body.get("text", "")).strip()
     if not text:
-        return 400, {"error": "Empty message."}
+        return None, (400, {"error": "Empty message."})
     if len(text) > MAX_TEXT_CHARS:
-        return 400, {"error": f"Message too long (max {MAX_TEXT_CHARS} characters)."}
-    reply, keep_running = core.titan_handle(text)
+        return None, (400, {"error": f"Message too long (max {MAX_TEXT_CHARS} characters)."})
+    return text, None
+
+
+def speech_for(text, reply):
+    """What Titan should say aloud for a reply (long on-screen results get a short line)."""
     route = core.match_local(text)
     if core.is_code_generation_request(text):
-        speech = "I've put the code example on screen."
-    elif core.persona.is_capabilities_request(text) or core.persona.is_optimization_request(text):
-        speech = "I've put my capabilities and suggestions on screen."
-    elif core.is_learning_request(text):
-        speech = "I've put the feedback or evaluation result on screen."
-    elif route and route[0] in {"diagnose_system", "diagnose_titan"}:
-        speech = "I've put the diagnosis on screen."
-    else:
-        speech = reply
-    return 200, {"reply": reply, "speech": speech, "keep_running": keep_running}
+        return "I've put the code example on screen."
+    if core.persona.is_capabilities_request(text) or core.persona.is_optimization_request(text):
+        return "I've put my capabilities and suggestions on screen."
+    if core.is_learning_request(text):
+        return "I've put the feedback or evaluation result on screen."
+    if route and route[0] in {"diagnose_system", "diagnose_titan"}:
+        return "I've put the diagnosis on screen."
+    return reply
+
+
+def api_chat(body):
+    text, error = _chat_text(body)
+    if error:
+        return error
+    reply, keep_running = core.titan_handle(text)
+    return 200, {"reply": reply, "speech": speech_for(text, reply), "keep_running": keep_running}
+
+
+def api_tts(body):
+    """Piper speech for the page, as WAV bytes (or an error dict)."""
+    text = str(body.get("text", "")).strip()
+    if not text or len(text) > MAX_SPEECH_CHARS:
+        return 400, {"error": "Bad speech text."}
+    audio = core.voice_out.wav_bytes(text)
+    if audio is None:
+        return 503, {"error": "Piper voice unavailable."}
+    return 200, audio
 
 
 def api_alerts():
@@ -399,6 +425,41 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(data)
+
+    def _stream_chat(self, body):
+        """Send a chat reply as newline-delimited JSON: {"sentence": ...} lines while
+        the AI model writes, then one {"done": true, "reply", "speech", ...} line."""
+        text, error = _chat_text(body)
+        if error:
+            return self._send(*error)
+        self.send_response(200)
+        self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()          # HTTP/1.0: no length, the body ends when we close
+
+        def emit(event):
+            self.wfile.write((json.dumps(event) + "\n").encode("utf-8"))
+            self.wfile.flush()
+
+        streamed = []
+
+        def on_sentence(sentence):
+            streamed.append(sentence)
+            emit({"sentence": sentence})
+
+        try:
+            reply, keep_running = core.titan_handle(text, on_sentence=on_sentence)
+            emit({"done": True, "reply": reply, "speech": speech_for(text, reply),
+                  "streamed": bool(streamed), "keep_running": keep_running})
+        except (BrokenPipeError, ConnectionResetError):
+            pass                    # the page was closed mid-reply
+        except Exception as err:
+            try:
+                emit({"done": True, "error": f"Server error: {err}"})
+            except OSError:
+                pass
 
     def _host_ok(self):
         return self.headers.get("Host", "") in self.server.allowed_hosts
@@ -461,6 +522,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(401, {"error": "Not signed in."})
             if path == "/api/chat":
                 return self._send(*api_chat(body))
+            if path == "/api/chat-stream":
+                return self._stream_chat(body)
+            if path == "/api/tts":
+                status, result = api_tts(body)
+                if isinstance(result, bytes):
+                    return self._send(status, result, "audio/wav")
+                return self._send(status, result)
             if path == "/api/wake-word":
                 return self._send(*api_wake_word(body))
             if path == "/api/listen":

@@ -15,7 +15,7 @@ except ImportError:
 
 
 BASE_DIR = Path(__file__).resolve().parent
-OLLAMA_TAGS_URL = "http://localhost:11434/api/tags"
+OLLAMA_TAGS_URL = "http://127.0.0.1:11434/api/tags"   # not "localhost": avoids a 2s IPv6 delay
 DASHBOARD_ADDRESS = ("127.0.0.1", 8765)
 CORE_FILES = (
     "T.v1.1.py",
