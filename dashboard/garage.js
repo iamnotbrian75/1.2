@@ -38,7 +38,8 @@ const g = {
   parts: {},            // id -> {part, group, base, ex, meshes, removal, target, placeholder}
   assetMeshes: [],      // every mesh of a loaded real model
   meshKey: new Map(),   // mesh -> stable key "index:name"
-  step: -1, selected: null, explode: 0.6, labels: "auto", flowsOn: true, cut: 0,
+  step: -1, selected: null, explode: 0.6, labels: "auto", flowsOn: false, cut: 0,
+  sheet: (() => { try { return localStorage.getItem("titan.garage.sheet") === "1"; } catch (e) { return false; } })(),
   map: { on: false, part: null, edits: null, rotate: [0, 0, 0], scale: 1 },
   renderer: null, scene: null, camera: null, controls: null, root: null, flows: [], plane: null,
   camGoal: null, clock: new THREE.Clock(), raf: 0, playTimer: 0,
@@ -266,9 +267,12 @@ function buildFlows(spec) {
 function updateFlows(dt) {
   const active = g.step >= 0 ? new Set(g.spec.steps[g.step].flows || []) : null;
   const m = new THREE.Matrix4();
+  let anyShown = false;
   for (const f of g.flows) {
-    const show = g.flowsOn && (!active || active.has(f.spec.id));
+    // a step shows its own flows; the overview only when FLOWS is switched on
+    const show = active ? active.has(f.spec.id) : g.flowsOn;
     f.obj.visible = show;
+    anyShown ||= show;
     if (!show) continue;
     f.t = (f.t + dt * (f.spec.speed || 0.08)) % 1;
     for (let i = 0; i < f.count; i++) {
@@ -277,6 +281,7 @@ function updateFlows(dt) {
     }
     f.dots.instanceMatrix.needsUpdate = true;
   }
+  $("#gFlowLegend").hidden = !anyShown;
 }
 function renderFlowLegend() {
   const box = $("#gFlowLegend"); box.textContent = "";
@@ -403,7 +408,8 @@ function labelParts() {
       const key = p.part.item || id;
       if (seen.has(key)) continue; seen.add(key); ids.push(id);
     }
-    ids = ids.slice(0, $("#gCanvas").clientWidth < 760 ? 8 : 14);       // fewer callouts on a phone
+    // keep it uncluttered: the key few (LABELS: ALL shows the rest)
+    ids = ids.slice(0, $("#gCanvas").clientWidth < 760 ? 5 : 6);
   }
   if (g.selected && !ids.includes(g.selected)) ids = [g.selected, ...ids];
   return ids.map((id) => g.parts[id]).filter((p) => p && p.group.visible && !p.ghost && p.removal < 0.5);
@@ -509,7 +515,7 @@ function updateLabels() {
 // dimension lines with arrowheads: only when assembled (EXPLODE near zero), like a
 // general-arrangement drawing, so the numbers are the real assembled size
 function dimensions(box, w, h) {
-  if (g.step >= 0 || g.map.on || box.isEmpty() || !g.spec || g.explode > 0.08) return "";
+  if (!g.sheet || g.step >= 0 || g.map.on || box.isEmpty() || !g.spec || g.explode > 0.08) return "";
   const size = box.getSize(new THREE.Vector3()), unit = g.spec.units || "mm";
   const a = toScreen(new THREE.Vector3(box.min.x, box.min.y, box.max.z), w, h);
   const b = toScreen(new THREE.Vector3(box.max.x, box.min.y, box.max.z), w, h);
@@ -555,7 +561,7 @@ function updateSheet(pts) {
 
 // line-only side and front elevations, drawn into the boxes on the sheet
 function renderInsets() {
-  if (g.map.on || !g.root) return;
+  if (!g.sheet || g.map.on || !g.root) return;
   const box = visibleBox();
   if (box.isEmpty()) return;
   const canvasRect = $("#gCanvas").getBoundingClientRect();
@@ -844,6 +850,26 @@ $("#gLabelsBtn").addEventListener("click", (e) => {
   e.currentTarget.textContent = { auto: "LABELS: KEY", all: "LABELS: ALL", off: "LABELS: OFF" }[g.labels];
 });
 $("#gFlows").addEventListener("click", (e) => { g.flowsOn = !g.flowsOn; e.currentTarget.classList.toggle("active", g.flowsOn); });
+function applySheet() {
+  $("#garage").classList.toggle("sheet-on", g.sheet);
+  $("#gSheetBtn").classList.toggle("active", g.sheet);
+  sheetKey = "";
+}
+$("#gSheetBtn").addEventListener("click", () => {
+  g.sheet = !g.sheet;
+  try { localStorage.setItem("titan.garage.sheet", g.sheet ? "1" : "0"); } catch (e) { /* ignore */ }
+  applySheet();
+});
+applySheet();
+$("#gToolsBtn").addEventListener("click", (e) => {
+  const panel = $("#gTools"); panel.hidden = !panel.hidden;
+  e.currentTarget.setAttribute("aria-expanded", String(!panel.hidden));
+  e.stopPropagation();
+});
+document.addEventListener("pointerdown", (e) => {
+  const panel = $("#gTools");
+  if (!panel.hidden && !panel.contains(e.target) && e.target.id !== "gToolsBtn") { panel.hidden = true; $("#gToolsBtn").setAttribute("aria-expanded", "false"); }
+});
 $("#gAsset").addEventListener("change", (e) => useAsset(e.target.value));
 $("#gAddFile").addEventListener("click", () => $("#gFile").click());
 $("#gFile").addEventListener("change", (e) => { upload(e.target.files[0]); e.target.value = ""; });

@@ -244,6 +244,7 @@ body.garage-open{overflow:hidden}
 .g-label.right{text-align:right; border-left:0; border-right:2px solid}
 .g-label.on,.g-label:hover{background:rgba(163,22,26,.75)}
 .g-flow-legend{top:auto; bottom:26px}
+.g-legend[hidden]{display:none}
 #gAssetNote{position:absolute; left:10px; top:30px; font-size:10px; color:var(--dim); letter-spacing:.06em; pointer-events:none}
 .g-view.drop{outline:2px dashed var(--accent); outline-offset:-6px}
 #gMap{display:none}
@@ -306,6 +307,15 @@ body.garage-open{overflow:hidden}
 .garage #gAssetNote{color:#6b5440; top:auto; bottom:30px}
 .garage .g-flow-legend{bottom:48px; left:14px}
 .garage.mapping #gSchedule,.garage.mapping .g-inset,.garage.mapping #gTitleBlock{display:none}
+/* clean by default: drawing extras only with SHEET on; tools tucked into a menu */
+.garage:not(.sheet-on) #gSchedule,.garage:not(.sheet-on) .g-inset,.garage:not(.sheet-on) #gTitleBlock,
+.garage:not(.sheet-on) .g-legend:not(.g-flow-legend){display:none}
+.garage .g-head{position:relative}
+.g-tools{position:absolute; right:0; top:100%; z-index:3; display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px;
+  max-width:min(560px,94vw); padding:10px 12px; background:rgba(244,234,210,.97); border:1.3px solid var(--ink); box-shadow:3px 3px 0 rgba(58,39,22,.2)}
+.g-tools[hidden]{display:none}
+.g-tools label{display:flex; align-items:center; gap:8px; font-size:9px; letter-spacing:.3em; color:var(--dim)}
+.g-tools input[type=range]{accent-color:var(--accent); width:120px}
 @media (max-width:900px){
   .g-inset,#gSchedule,#gTitleBlock{display:none}
   .garage #gDisclaimer{right:14px}
@@ -448,21 +458,25 @@ body.garage-open{overflow:hidden}
 <!-- garage: 3D models, parts and build steps (logic in /garage.js) -->
 <div class="garage" id="garage" hidden>
   <div class="g-head">
-    <b>GARAGE // 3D</b>
+    <b>GARAGE</b>
     <select id="gModel" aria-label="Guide"></select>
-    <select id="gAsset" aria-label="3D file"></select>
-    <button class="pill" type="button" id="gAddFile" title="Add a .glb, .gltf or .obj file (or drag one onto the view)">＋ 3D FILE</button>
-    <input type="file" id="gFile" accept=".glb,.gltf,.obj" hidden>
-    <button class="pill" type="button" id="gMapBtn" hidden>MAP PARTS</button>
     <span class="spacer"></span>
     <button class="pill" type="button" id="gPlay">▶ PLAY</button>
     <button class="pill" type="button" id="gLabelsBtn">LABELS: KEY</button>
-    <button class="pill active" type="button" id="gFlows" hidden>FLOWS</button>
-    <label>EXPLODE <input type="range" id="gExplode" min="0" max="100" value="60"></label>
-    <label>CUTAWAY <input type="range" id="gCut" min="0" max="90" value="0"></label>
-    <button class="pill" type="button" id="gFit">RE-CENTRE</button>
-    <button class="pill" type="button" id="gExport" hidden>EXPORT STL</button>
+    <button class="pill" type="button" id="gSheetBtn">SHEET</button>
+    <button class="pill" type="button" id="gToolsBtn" aria-expanded="false">TOOLS ▾</button>
     <button class="pill" type="button" id="gClose">CLOSE ✕</button>
+    <div class="g-tools" id="gTools" hidden>
+      <select id="gAsset" aria-label="3D file"></select>
+      <button class="pill" type="button" id="gAddFile" title="Add a .glb, .gltf or .obj file (or drag one onto the view)">＋ 3D FILE</button>
+      <input type="file" id="gFile" accept=".glb,.gltf,.obj" hidden>
+      <button class="pill" type="button" id="gMapBtn" hidden>MAP PARTS</button>
+      <button class="pill" type="button" id="gFlows" hidden>FLOWS</button>
+      <label>EXPLODE <input type="range" id="gExplode" min="0" max="100" value="60"></label>
+      <label>CUTAWAY <input type="range" id="gCut" min="0" max="90" value="0"></label>
+      <button class="pill" type="button" id="gFit">RE-CENTRE</button>
+      <button class="pill" type="button" id="gExport" hidden>EXPORT STL</button>
+    </div>
     <div id="gSub"></div>
   </div>
   <div class="g-body">
@@ -485,12 +499,12 @@ body.garage-open{overflow:hidden}
     </div>
     <div class="g-side">
       <div class="g-tabs">
-        <button class="pill active" type="button" data-tab="Parts">PARTS</button>
-        <button class="pill" type="button" data-tab="Steps">STEPS</button>
+        <button class="pill active" type="button" data-tab="Steps">STEPS</button>
+        <button class="pill" type="button" data-tab="Parts">PARTS</button>
         <button class="pill" type="button" data-tab="Project">PROJECT</button>
       </div>
-      <div class="g-pane" id="gParts"></div>
-      <div class="g-pane" id="gSteps" hidden></div>
+      <div class="g-pane" id="gParts" hidden></div>
+      <div class="g-pane" id="gSteps"></div>
       <div class="g-pane" id="gProject" hidden></div>
       <div class="g-pane" id="gMap"></div>
     </div>
