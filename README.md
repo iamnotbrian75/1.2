@@ -160,6 +160,43 @@ expires after two minutes and is cancelled if you send a different command.
   change in `TITAN_CHANGELOG.md`; restart Titan before expecting its running
   process to load self-updated code.
 
+## Independence (titan_autonomy.py)
+
+- **Multi-step tasks**: `task: <goal>` or `get me set up for revision` makes
+  Titan plan and chain its own actions. `X and then Y` made of known commands
+  runs each part directly, without the AI. Supervised mode allows 6 actions per
+  task, autonomous mode 25 (`switch to autonomous mode` / `supervised mode`).
+- **Approval gates stay on**: during tasks and routines Titan cannot delete
+  files, lock the PC, edit code or inspect websites; you must ask directly.
+- **Self-check** (`turn on/off self checking`): before replying, Titan checks
+  its draft against what each action actually returned.
+- **Watchdog** (`turn on/off the watchdog`): every minute it checks battery,
+  memory, CPU, disk and Ollama, and speaks up only when something needs you.
+- **Heartbeat**: every 30 minutes, at most one useful item (a routine
+  suggestion, a reminder due within the hour, a long uptime).
+- **Daily briefing**: weather, headlines, reminders and laptop health at 08:00
+  by default. `give me my briefing`, `set my briefing for 7:30am`,
+  `turn off my briefing`.
+- **Standing goals**: `every morning at 8 check the weather and the news` runs
+  as a task each day and reports back. `list my goals`, `cancel goal 1`.
+- **Routine learning**: when the same 2-4 commands happen in a row in three
+  separate sessions, Titan suggests a routine; nothing is saved until you say
+  `adopt routine 1` (optionally `as revision`). Run with `run routine revision`
+  or `/revision`. `list routines`, `dismiss routine 1`, `forget my routines`,
+  `stop learning routines`. Only command names and wording are logged, locally
+  in `titan_autonomy.json` (git-ignored).
+- The dashboard shows all of this in the AUTO // AGENT panel, and saved
+  memories in MEM // WHAT I KNOW, where each can be deleted.
+
+## Phone (Tailscale)
+
+- Open the private `https://<pc>.ts.net/` address, then Share > Add to Home
+  Screen to use Titan like an app. The session is remembered on the phone
+  until the Titan server restarts.
+- MIC records on the device you're using (phone or laptop); the audio is
+  transcribed offline on the laptop by Vosk (`/api/transcribe`). Replies are
+  spoken through the phone with the Piper voice.
+
 ## Voice and performance
 
 - Titan speaks with a local Piper neural voice (`titan_voice.py`). Voice files

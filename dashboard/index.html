@@ -2,210 +2,327 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#060203">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TITAN">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
 <title>TITAN</title>
 
 <!-- =====================================================================
-     TITAN HUD  (served by dashboard/server.py)
+     TITAN HUD v2  (served by dashboard/server.py)
+     Blueprint-grid workshop HUD: radial command wheel around the core,
+     floating glass panels, monospace status line, and a minimal standby
+     screen (core + big clock) after a period of inactivity.
      SECTION A: STYLES
      SECTION B: PAGE LAYOUT (HTML)
-     SECTION C: SCRIPT  (api, log, speech, mic, stats, login, reactor)
+     SECTION C: SCRIPT  (api, log, speech, mic, stats, login, wheel, core)
      ===================================================================== -->
 
 <!-- =====================  SECTION A: STYLES  ===================== -->
 <style>
 :root{
-  --bg:#03070d; --panel:#061320; --line:#0e4a5c; --dim:#4a95a8;
-  --cyan:#00e5ff; --white:#d8fbff;
-  --green:#39ff88; --amber:#ffb300; --red:#ff4d4d;
-  --mono:"Cascadia Mono",Consolas,"SF Mono","DejaVu Sans Mono",monospace;
+  --bg:#060203; --bg2:#0d0405;
+  --grid:rgba(230,90,90,.045); --grid2:rgba(230,90,90,.085);
+  --glass:rgba(22,8,9,.76); --edge:rgba(255,70,60,.20); --edge2:rgba(255,70,60,.50);
+  --accent:#ff3b30; --accent-dim:#9e2a24; --ice:#ffe6e2; --dim:#b07a74; --faint:#5e3633;
+  --wedge:#a3161a; --green:#45f0a0; --amber:#ffb547; --red:#ff5b5b;
+  --mono:"Cascadia Mono","JetBrains Mono",Consolas,"SF Mono","DejaVu Sans Mono",monospace;
+  --wheel:min(58vh,520px);
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{
-  background:var(--bg); color:var(--white); font-family:var(--mono); font-size:14px; overflow:hidden;
+  background:var(--bg); color:var(--ice); font-family:var(--mono); font-size:13px; overflow:hidden;
   background-image:
-    radial-gradient(ellipse at 28% 45%, rgba(0,229,255,.08), transparent 60%),
-    linear-gradient(rgba(0,229,255,.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,229,255,.035) 1px, transparent 1px);
-  background-size:auto,40px 40px,40px 40px;
+    radial-gradient(ellipse 70% 60% at 50% 46%, rgba(190,30,30,.13), transparent 70%),
+    linear-gradient(var(--grid2) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid2) 1px, transparent 1px),
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size:auto,120px 120px,120px 120px,24px 24px,24px 24px;
+  background-position:center;
+}
+body::after{ /* vignette */
+  content:""; position:fixed; inset:0; pointer-events:none;
+  background:radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.65) 100%);
 }
 button,input{font-family:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+/* ---- HUD frame: thin border, corner brackets, top notch ---- */
+.frame{position:fixed; inset:14px; pointer-events:none; z-index:1}
+.frame svg{width:100%; height:100%; overflow:visible}
+.frame .line{fill:none; stroke:var(--edge); stroke-width:1}
+.frame .bracket{fill:none; stroke:var(--edge2); stroke-width:2}
 
 /* ---- page grid ---- */
-.app{display:grid; grid-template-columns:minmax(300px,4fr) minmax(0,6fr); grid-template-rows:auto minmax(0,1fr); gap:14px; height:100vh; padding:14px 18px}
-header{grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); padding-bottom:10px}
-.brand h1{margin:0; font-size:22px; letter-spacing:.5em; color:var(--cyan); text-shadow:0 0 14px rgba(0,229,255,.6)}
-.brand small{display:block; margin-top:4px; color:var(--dim); letter-spacing:.28em; font-size:10px}
-.clock{text-align:right}
-.clock b{font-size:22px; letter-spacing:.12em; font-weight:600}
-.clock span{display:block; color:var(--dim); font-size:11px; letter-spacing:.2em; margin-top:2px}
-.col{display:flex; flex-direction:column; gap:12px; min-height:0; min-width:0}
+.app{position:relative; z-index:2; display:grid; height:100vh; padding:30px 40px 22px;
+  grid-template-columns:minmax(250px,300px) minmax(0,1fr) minmax(280px,380px);
+  grid-template-rows:56px minmax(0,1fr) auto; gap:16px 26px}
+.top{grid-column:1/-1; display:grid; grid-template-columns:1fr auto 1fr; align-items:start}
+.brand{font-size:12px; letter-spacing:.45em; color:var(--accent)}
+.brand small{display:block; margin-top:5px; letter-spacing:.3em; color:var(--faint); font-size:9px}
+.notch{text-align:center; padding-top:2px}
+.notch b{display:block; font-size:20px; font-weight:500; letter-spacing:.18em; color:var(--ice)}
+.notch span{font-size:9px; letter-spacing:.35em; color:var(--dim)}
+.who{justify-self:end; text-align:right; font-size:10px; letter-spacing:.3em; color:var(--dim)}
+.who b{display:block; color:var(--ice); font-weight:500; letter-spacing:.25em; margin-bottom:5px}
 
-/* ---- panels with HUD corner brackets ---- */
-.panel{position:relative; border:1px solid var(--line); padding:10px 12px; background:linear-gradient(180deg,rgba(6,19,32,.88),rgba(3,10,18,.88))}
-.panel::before,.panel::after{content:""; position:absolute; width:12px; height:12px; border:2px solid var(--cyan)}
-.panel::before{top:-1px; left:-1px; border-right:0; border-bottom:0}
-.panel::after{bottom:-1px; right:-1px; border-left:0; border-top:0}
-.panel h2{margin:0 0 8px; font-size:10px; font-weight:600; letter-spacing:.3em; color:var(--dim)}
-.grow{flex:1; min-height:0}
+.side{display:flex; flex-direction:column; gap:16px; min-height:0; transition:opacity .8s, transform .8s}
+.center{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; min-height:0; min-width:0}
 
-/* ---- reactor ---- */
-.reactor{display:flex; flex-direction:column; padding-bottom:8px}
-.reactor-wrap{position:relative; flex:1; min-height:240px}
-.reactor-wrap canvas{position:absolute; inset:0; width:100%; height:100%}
-#stateLabel{text-align:center; letter-spacing:.5em; font-weight:700; font-size:13px; color:var(--cyan); text-shadow:0 0 10px currentColor; padding-top:6px}
+/* ---- floating glass cards ---- */
+.card{position:relative; background:var(--glass); border:1px solid var(--edge); border-radius:3px;
+  padding:12px 14px; backdrop-filter:blur(8px); box-shadow:0 10px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,150,140,.06);
+  animation:float-in .7s ease both}
+.card::before{content:""; position:absolute; top:-1px; left:14px; width:38px; height:2px; background:var(--accent); box-shadow:0 0 10px var(--accent)}
+.card h2{margin:0 0 10px; font-size:9px; font-weight:600; letter-spacing:.32em; color:var(--dim); display:flex; justify-content:space-between}
+.card h2 i{font-style:normal; color:var(--faint)}
+.grow{flex:1; min-height:0; display:flex; flex-direction:column}
+.side .card:nth-child(2){animation-delay:.08s} .side .card:nth-child(3){animation-delay:.16s}
+@keyframes float-in{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:none}}
 
-/* ---- status chips ---- */
-.chips{display:grid; gap:6px}
-.chip{display:flex; align-items:center; gap:8px; font-size:12px}
-.chip .dot{width:8px; height:8px; border-radius:50%; background:var(--dim); box-shadow:0 0 6px currentColor; color:var(--dim)}
-.chip.ok .dot{background:var(--green); color:var(--green)}
-.chip.warn .dot{background:var(--amber); color:var(--amber)}
-.chip.bad .dot{background:var(--red); color:var(--red)}
-.chip .k{flex:0 0 112px; color:var(--dim); letter-spacing:.15em}
-.chip .v{color:var(--white); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+/* ---- vitals: segmented meters ---- */
+.meter{margin:2px 0 12px}
+.meter .row1{display:flex; justify-content:space-between; font-size:10px; letter-spacing:.2em; color:var(--dim); margin-bottom:6px}
+.meter .row1 b{color:var(--ice); font-weight:600; letter-spacing:.08em; font-size:13px}
+.bars{display:grid; grid-template-columns:repeat(24,1fr); gap:2px; height:12px}
+.bars i{background:rgba(255,59,48,.10); border-radius:1px; transition:background .4s, box-shadow .4s}
+.bars i.on{background:var(--accent); box-shadow:0 0 6px rgba(255,59,48,.55)}
+.bars.warn i.on{background:var(--amber); box-shadow:0 0 6px rgba(255,181,71,.5)}
+.bars.hot i.on{background:var(--red); box-shadow:0 0 6px rgba(255,91,91,.5)}
+.duo{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px}
+.duo div{border-top:1px solid var(--edge); padding-top:8px}
+.duo b{display:block; font-size:20px; font-weight:500; color:var(--ice)}
+.duo span{font-size:9px; letter-spacing:.3em; color:var(--dim)}
 
-/* ---- vitals ---- */
-.vitals{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
-.tile{text-align:center}
-.tile .cap{font-size:10px; letter-spacing:.25em; color:var(--dim); margin-top:2px}
-.tile .sub{font-size:10px; color:var(--dim); min-height:12px}
-.gauge{width:100%; max-width:120px; height:auto}
-.gauge circle{fill:none; stroke-width:9; stroke-linecap:round}
-.gauge .bg{stroke:var(--line); opacity:.55}
-.gauge .fg{stroke:var(--cyan); transition:stroke-dasharray .8s ease, stroke .4s; filter:drop-shadow(0 0 4px currentColor); color:var(--cyan)}
-.gauge.warn .fg{stroke:var(--amber); color:var(--amber)}
-.gauge.hot .fg{stroke:var(--red); color:var(--red)}
-.gauge text{fill:var(--white); font-family:var(--mono); font-size:22px; font-weight:700; text-anchor:middle}
-.big{font-size:30px; font-weight:700; letter-spacing:.05em; padding:34px 0 22px; text-shadow:0 0 10px rgba(0,229,255,.5)}
+/* ---- links (status chips) ---- */
+.chips{display:grid; gap:8px}
+.chip{display:grid; grid-template-columns:8px 92px 1fr; align-items:center; gap:9px; font-size:11px}
+.chip .dot{width:7px; height:7px; border-radius:50%; background:var(--faint)}
+.chip.ok .dot{background:var(--green); box-shadow:0 0 8px var(--green)}
+.chip.warn .dot{background:var(--amber); box-shadow:0 0 8px var(--amber)}
+.chip.bad .dot{background:var(--red); box-shadow:0 0 8px var(--red)}
+.chip .k{color:var(--dim); letter-spacing:.18em; font-size:10px}
+.chip .v{color:var(--ice); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 
-/* ---- conversation log ---- */
-#log{height:calc(100% - 22px); overflow-y:auto; padding-right:6px; scrollbar-width:thin; scrollbar-color:var(--line) transparent}
-.row{display:grid; grid-template-columns:70px 58px 1fr; gap:8px; padding:3px 0; line-height:1.45}
-.row .ts{color:var(--dim); font-size:11px; padding-top:2px}
-.row .who{font-weight:700; letter-spacing:.12em; font-size:12px; padding-top:1px}
-.row .msg{white-space:pre-wrap; word-break:break-word}
-.row.you .who{color:var(--white)} .row.you .msg{color:var(--white)}
-.row.titan .who{color:var(--cyan)} .row.titan .msg{color:var(--cyan)}
-.row.sys .who,.row.sys .msg{color:var(--dim)}
+/* ---- autonomy + memory panels ---- */
+.side.left{overflow-y:auto; scrollbar-width:none}
+.pills{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:10px}
+.pills.wrap{display:flex; flex-wrap:wrap; margin:0}
+.pill{background:rgba(18,7,8,.85); color:var(--dim); border:1px solid var(--edge); border-radius:3px; padding:7px 8px;
+  font-size:9px; letter-spacing:.2em; cursor:pointer; transition:background .15s, color .15s, box-shadow .15s}
+.pill:hover{color:var(--ice); border-color:var(--edge2)}
+.pill.active{background:var(--wedge); color:#fff; border-color:rgba(255,160,150,.6); box-shadow:0 0 12px rgba(255,50,40,.35)}
+.pill.small{padding:4px 9px}
+.kv{display:flex; justify-content:space-between; align-items:center; font-size:10px; letter-spacing:.2em; color:var(--dim); margin:6px 0}
+.sub-h{font-size:9px; letter-spacing:.3em; color:var(--faint); margin:12px 0 6px}
+.mini{font-size:11px; color:var(--dim); line-height:1.5}
+.mini b{color:var(--ice); font-weight:500}
+.mem{list-style:none; margin:0; padding:0; display:grid; gap:6px}
+.mem li{display:flex; gap:8px; align-items:flex-start; font-size:11.5px; line-height:1.45; color:var(--ice)}
+.mem li span{flex:1; min-width:0; word-break:break-word}
+.mem button{background:none; border:1px solid var(--edge); color:var(--dim); border-radius:3px; width:22px; height:22px; flex:none;
+  cursor:pointer; font-size:12px; line-height:1}
+.mem button:hover{color:#fff; background:var(--wedge)}
+#autoSug{cursor:pointer; color:var(--accent)}
+
+/* ---- the wheel ---- */
+.wheel{position:relative; width:var(--wheel); height:var(--wheel); flex:none; transition:transform .9s cubic-bezier(.2,.8,.2,1)}
+.wheel canvas,.wheel svg{position:absolute; inset:0; width:100%; height:100%}
+.wheel .ring-bg{fill:rgba(18,7,8,.88); stroke:var(--edge); stroke-width:1}
+.seg{cursor:pointer; outline:none}
+.seg path{fill:transparent; stroke:rgba(255,70,60,.10); stroke-width:1; transition:fill .18s, stroke .18s, filter .18s}
+.seg .ico{fill:none; stroke:var(--dim); stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; transition:stroke .18s}
+.seg text{fill:var(--faint); font-family:var(--mono); font-size:8.5px; letter-spacing:.22em; text-anchor:middle; transition:fill .18s}
+.seg:hover path,.seg:focus-visible path,.seg.active path{fill:var(--wedge); stroke:rgba(255,160,150,.6); filter:drop-shadow(0 0 14px rgba(255,50,40,.55))}
+.seg:hover .ico,.seg:focus-visible .ico,.seg.active .ico{stroke:#fff1ef}
+.seg:hover text,.seg:focus-visible text,.seg.active text{fill:#ffd9d4}
+.seg.on .ico{stroke:var(--green)} .seg.on text{fill:var(--green)}
+.core-label{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none}
+.core-label b{display:block; font-size:calc(var(--wheel) * .036); font-weight:500; letter-spacing:.42em; padding-left:.42em; color:var(--ice); text-shadow:0 0 12px rgba(255,59,48,.7)}
+.core-label span{display:block; margin-top:6px; font-size:8px; letter-spacing:.4em; padding-left:.4em; color:var(--dim)}
+.standby-clock{display:none; text-align:center; pointer-events:none}
+.standby-clock b{display:block; font-size:calc(var(--wheel) * .11); font-weight:300; letter-spacing:.1em; color:var(--ice); text-shadow:0 0 18px rgba(255,59,48,.35)}
+.standby-clock span{font-size:10px; letter-spacing:.4em; color:var(--dim)}
+
+/* ---- command bar ---- */
+form.cmd{display:flex; align-items:center; gap:8px; width:min(100%,560px); transition:opacity .8s}
+form.cmd .prompt{color:var(--accent); font-size:14px}
+form.cmd input{flex:1; min-width:0; background:rgba(18,7,8,.85); border:1px solid var(--edge); border-radius:3px; color:var(--ice); padding:11px 13px; font-size:13px}
+form.cmd input::placeholder{color:var(--faint)}
+.btn{background:rgba(18,7,8,.85); color:var(--accent); border:1px solid var(--edge); border-radius:3px; padding:10px 12px; font-size:10px; letter-spacing:.22em; cursor:pointer; transition:background .15s, box-shadow .15s, color .15s}
+.btn:hover{background:var(--wedge); color:#fff; box-shadow:0 0 14px rgba(255,50,40,.4)}
+.btn.on{background:var(--green); color:#03150b; border-color:var(--green); box-shadow:0 0 14px rgba(69,240,160,.5)}
+.btn.muted{color:var(--faint)}
+#stateLabel{font-size:10px; letter-spacing:.5em; padding-left:.5em; color:var(--accent); min-height:14px; transition:color .4s}
+
+/* ---- conversation ---- */
+#log{flex:1; min-height:0; overflow-y:auto; padding-right:6px; scrollbar-width:thin; scrollbar-color:var(--faint) transparent}
+.row{padding:7px 0 8px; border-bottom:1px solid rgba(255,70,60,.07); line-height:1.5}
+.row .meta{display:flex; gap:10px; font-size:9px; letter-spacing:.25em; margin-bottom:3px}
+.row .who{font-weight:700} .row .ts{color:var(--faint)}
+.row .msg{white-space:pre-wrap; word-break:break-word; font-size:12.5px}
+.row.you .who{color:var(--dim)} .row.you .msg{color:#e8c4bf}
+.row.titan .who{color:var(--accent)} .row.titan .msg{color:var(--ice)}
+.row.sys .who,.row.sys .msg{color:var(--faint)}
 .row.err .who,.row.err .msg{color:var(--red)}
 
-/* ---- controls ---- */
-.chipbar{display:flex; flex-wrap:wrap; gap:6px}
-.btn{background:transparent; color:var(--cyan); border:1px solid var(--line); padding:7px 12px; font-size:12px; letter-spacing:.14em; cursor:pointer; transition:background .15s,color .15s,box-shadow .15s}
-.btn:hover{background:rgba(0,229,255,.12); box-shadow:0 0 10px rgba(0,229,255,.25)}
-.btn:focus-visible,input:focus-visible{outline:2px solid var(--cyan); outline-offset:2px}
-.btn.on{background:var(--green); color:#02130a; border-color:var(--green); box-shadow:0 0 14px rgba(57,255,136,.5)}
-.btn.small{padding:4px 9px; font-size:11px}
-.btn.muted{color:var(--dim)}
-form.cmd{display:flex; align-items:center; gap:8px}
-form.cmd .prompt{color:var(--cyan)}
-form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px solid var(--line); color:var(--white); padding:10px 12px; font-size:14px}
+/* ---- bottom status line ---- */
+.status{grid-column:1/-1; display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px 18px; font-size:10px; color:var(--faint); letter-spacing:.06em; border-top:1px solid rgba(255,70,60,.10); padding-top:9px}
+.status span b{color:var(--dim); font-weight:400}
+.status .ok{color:var(--green)} .status .warn{color:var(--amber)} .status .bad{color:var(--red)}
+
+/* ---- standby: just the core and a big clock ---- */
+body.standby .side, body.standby .top .brand, body.standby .top .who, body.standby form.cmd, body.standby .status, body.standby #stateLabel{opacity:0; pointer-events:none}
+body.standby .side{transform:scale(.97)}
+body.standby .seg{opacity:0; pointer-events:none}
+body.standby .wheel .ring-bg{opacity:0}
+body.standby .wheel{transform:scale(.62)}
+body.standby .standby-clock{display:block; margin-top:calc(var(--wheel) * -.27); animation:float-in 1s ease both}
+body.standby #stateLabel,body.standby form.cmd{display:none}
+body.standby .notch{opacity:0}
+.seg,.wheel .ring-bg,.top>*{transition:opacity .8s}
 
 /* ---- login / offline overlay ---- */
-.overlay{position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(2,6,10,.9); backdrop-filter:blur(6px); z-index:10}
+.overlay{position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(3,6,10,.88); backdrop-filter:blur(8px); z-index:10}
 .overlay[hidden]{display:none}
-.card{width:min(420px,92vw); padding:28px 30px}
-.card h3{margin:0 0 6px; color:var(--cyan); letter-spacing:.35em; font-size:15px}
-.card p{margin:0 0 18px; color:var(--dim); font-size:12px; line-height:1.5}
-.card label{display:block; font-size:10px; letter-spacing:.25em; color:var(--dim); margin:10px 0 4px}
-.card input{width:100%; background:rgba(0,229,255,.05); border:1px solid var(--line); color:var(--white); padding:10px 12px; font-size:15px}
-.card .btn{width:100%; margin-top:18px; padding:11px}
-#loginMsg{min-height:18px; margin-top:12px; font-size:12px; color:var(--amber)}
+.login{width:min(400px,92vw); padding:26px 28px}
+.login h3{margin:0 0 6px; color:var(--accent); letter-spacing:.4em; font-size:13px; font-weight:600}
+.login p{margin:0 0 16px; color:var(--dim); font-size:11px; line-height:1.6}
+.login label{display:block; font-size:9px; letter-spacing:.3em; color:var(--dim); margin:12px 0 5px}
+.login input{width:100%; background:rgba(18,7,8,.9); border:1px solid var(--edge); border-radius:3px; color:var(--ice); padding:10px 12px; font-size:14px}
+.login .btn{width:100%; margin-top:18px; padding:12px}
+#loginMsg{min-height:18px; margin-top:12px; font-size:11px; color:var(--amber)}
 
-@media (max-width:900px){
-  body{overflow:auto}
-  .app{grid-template-columns:1fr; height:auto}
-  .reactor-wrap{min-height:300px}
-  #log{height:260px}
+@media (max-width:1100px){
+  body{overflow:auto; -webkit-tap-highlight-color:transparent}
+  :root{--wheel:min(92vw,440px)}
+  .app{grid-template-columns:minmax(0,1fr); grid-template-rows:auto; height:auto;
+    padding:calc(18px + env(safe-area-inset-top)) 14px calc(96px + env(safe-area-inset-bottom))}
+  .top{grid-template-columns:minmax(0,1fr) auto} .notch{display:none}
+  .center{order:1} .side.right{order:2} .side.left{order:3} .status{order:4}
+  #log{height:46vh; flex:none}
+  .frame{display:none}
+  /* command bar pinned to the bottom of the phone screen, thumb-sized */
+  form.cmd{position:fixed; left:0; right:0; bottom:0; z-index:5; width:auto; gap:8px;
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+    background:linear-gradient(transparent, rgba(6,2,3,.96) 22%); }
+  form.cmd .prompt{display:none}
+  form.cmd input{font-size:16px; padding:13px 14px}          /* 16px stops iPhone zooming in */
+  form.cmd .btn{min-width:52px; min-height:48px; padding:0 12px; font-size:10px}
+  form.cmd button[type=submit]{display:none}               /* the keyboard's Send key submits */
+  .seg text{font-size:12px}
+  .card{padding:14px}
+  .row .msg{font-size:14px}
+  .status{font-size:9px}
+  .login input{font-size:16px}
+  body.standby form.cmd{display:flex}
 }
-@media (prefers-reduced-motion:reduce){ .gauge .fg{transition:none} }
+.btn.rec{background:var(--accent); color:#fff; border-color:var(--accent); box-shadow:0 0 18px rgba(255,59,48,.7); animation:rec-pulse 1s ease-in-out infinite}
+@keyframes rec-pulse{50%{box-shadow:0 0 4px rgba(255,59,48,.3)}}
+@media (prefers-reduced-motion:reduce){ .card{animation:none} .wheel,.side{transition:none} }
 </style>
 </head>
 
 <!-- =====================  SECTION B: PAGE LAYOUT  ===================== -->
 <body>
+<div class="frame" aria-hidden="true">
+  <svg id="frameSvg"></svg>
+</div>
+
 <div class="app">
+  <div class="top">
+    <div class="brand">TITAN<small>OFFLINE ASSISTANT // V1.2</small></div>
+    <div class="notch"><b id="clock">--:--:--</b><span id="date">&nbsp;</span></div>
+    <div class="who"><b id="userName">—</b><span id="sessionState">LOCAL SESSION</span></div>
+  </div>
 
-  <header>
-    <div class="brand"><h1>TITAN</h1><small>OFFLINE AI ASSISTANT · V1.1</small></div>
-    <div class="clock"><b id="clock">--:--:--</b><span id="date">&nbsp;</span></div>
-  </header>
-
-  <!-- LEFT COLUMN: reactor + system status -->
-  <section class="col">
-    <div class="panel reactor grow">
-      <h2>// CORE</h2>
-      <div class="reactor-wrap"><canvas id="reactor" aria-hidden="true"></canvas></div>
-      <div id="stateLabel">STANDBY</div>
+  <!-- LEFT: vitals + links -->
+  <section class="side left">
+    <div class="card">
+      <h2>SYS // VITALS <i>LIVE</i></h2>
+      <div class="meter"><div class="row1"><span>CPU</span><b id="cpuVal">--</b></div><div class="bars" id="bars-cpu"></div></div>
+      <div class="meter"><div class="row1"><span>MEMORY</span><b id="ramVal">--</b></div><div class="bars" id="bars-ram"></div></div>
+      <div class="duo">
+        <div><b id="procs">--</b><span>PROCESSES</span></div>
+        <div><b id="uptime">--</b><span>UPTIME</span></div>
+      </div>
     </div>
-    <div class="panel">
-      <h2>// SYSTEMS</h2>
+    <div class="card">
+      <h2>LINK // STATUS <i>4 NODES</i></h2>
       <div class="chips">
         <div class="chip" id="chip-core"><i class="dot"></i><span class="k">CORE</span><span class="v">CONNECTING…</span></div>
         <div class="chip" id="chip-ollama"><i class="dot"></i><span class="k">AI MODEL</span><span class="v">CHECKING…</span></div>
-        <div class="chip" id="chip-voice"><i class="dot"></i><span class="k">VOICE OUT</span><span class="v">CHECKING…</span></div>
-        <div class="chip" id="chip-mic"><i class="dot"></i><span class="k">VOICE ACTIVATION</span><span class="v">CHECKING…</span></div>
+        <div class="chip" id="chip-voice"><i class="dot"></i><span class="k">VOICE OUT</span><span class="v">PIPER NEURAL</span></div>
+        <div class="chip" id="chip-mic"><i class="dot"></i><span class="k">WAKE WORD</span><span class="v">CHECKING…</span></div>
       </div>
+    </div>
+    <div class="card">
+      <h2>AUTO // AGENT <i id="autoSug"></i></h2>
+      <div class="pills" role="group" aria-label="Task mode">
+        <button class="pill" type="button" id="mode-supervised" data-say="switch to supervised mode">SUPERVISED · 6</button>
+        <button class="pill" type="button" id="mode-autonomous" data-say="switch to autonomous mode">AUTONOMOUS · 25</button>
+      </div>
+      <div class="kv"><span>SELF-CHECK</span><button class="pill small" type="button" id="selfCheck">—</button></div>
+      <div class="kv"><span>WATCHDOG</span><button class="pill small" type="button" id="watchdog">—</button></div>
+      <div class="kv"><span>BRIEFING</span><button class="pill small" type="button" id="briefNow" title="Give me my briefing now">—</button></div>
+      <div class="sub-h">GOALS</div><div id="goals" class="mini">none yet · try “every morning at 8 check the weather and news”</div>
+      <div class="sub-h">ROUTINES</div><div id="routines" class="pills wrap"><span class="mini">none yet · I'll suggest some as I learn</span></div>
+    </div>
+    <div class="card">
+      <h2>MEM // WHAT I KNOW <i id="memCount">0</i></h2>
+      <ul id="memories" class="mem"><li class="mini">Nothing saved yet. Say “remember that…”.</li></ul>
     </div>
   </section>
 
-  <!-- RIGHT COLUMN: vitals, conversation, controls -->
-  <section class="col">
-    <div class="panel">
-      <h2>// SYSTEM VITALS</h2>
-      <div class="vitals">
-        <div class="tile">
-          <svg class="gauge" id="g-cpu" viewBox="0 0 120 120" aria-label="CPU usage">
-            <circle class="bg" cx="60" cy="60" r="48" transform="rotate(135 60 60)" stroke-dasharray="226.19 301.59"/>
-            <circle class="fg" cx="60" cy="60" r="48" transform="rotate(135 60 60)" stroke-dasharray="0 301.59"/>
-            <text x="60" y="68">--</text>
-          </svg>
-          <div class="cap">CPU</div><div class="sub">&nbsp;</div>
-        </div>
-        <div class="tile">
-          <svg class="gauge" id="g-ram" viewBox="0 0 120 120" aria-label="Memory usage">
-            <circle class="bg" cx="60" cy="60" r="48" transform="rotate(135 60 60)" stroke-dasharray="226.19 301.59"/>
-            <circle class="fg" cx="60" cy="60" r="48" transform="rotate(135 60 60)" stroke-dasharray="0 301.59"/>
-            <text x="60" y="68">--</text>
-          </svg>
-          <div class="cap">MEMORY</div><div class="sub" id="ramSub">&nbsp;</div>
-        </div>
-        <div class="tile"><div class="big" id="procs">--</div><div class="cap">PROCESSES</div><div class="sub">&nbsp;</div></div>
-        <div class="tile"><div class="big" id="uptime">--</div><div class="cap">UPTIME</div><div class="sub">&nbsp;</div></div>
-      </div>
+  <!-- CENTER: core + command wheel + command bar -->
+  <section class="center">
+    <div class="wheel" id="wheel">
+      <canvas id="reactor" aria-hidden="true"></canvas>
+      <svg id="wheelSvg" viewBox="0 0 500 500" role="group" aria-label="Titan command wheel"></svg>
+      <div class="core-label"><b>TITAN</b><span id="coreSub">STANDBY</span></div>
     </div>
-
-    <div class="panel grow">
-      <h2>// CONVERSATION</h2>
-      <div id="log" role="log" aria-live="polite"></div>
-    </div>
-
-    <div class="chipbar" id="quick">
-      <button class="btn small" data-cmd="what time is it">TIME</button>
-      <button class="btn small" data-cmd="cpu">CPU</button>
-      <button class="btn small" data-cmd="ram">RAM</button>
-      <button class="btn small" data-cmd="processes">PROCESSES</button>
-      <button class="btn small" data-cmd="system info">SYSTEM</button>
-      <button class="btn small" data-cmd="list files">FILES</button>
-      <button class="btn small" data-cmd="read notes">NOTES</button>
-      <button class="btn small" type="button" id="wakeToggle">WAKE WORD OFF</button>
-    </div>
-
+    <div class="standby-clock"><b id="bigClock">--:--</b><span id="bigDate">&nbsp;</span></div>
+    <div id="stateLabel">STANDBY</div>
     <form class="cmd" id="form" autocomplete="off">
-      <span class="prompt">▶</span>
-      <input id="input" type="text" maxlength="500" placeholder="Type a command or ask me something…  (↑ = previous)" aria-label="Command">
+      <span class="prompt">▸</span>
+      <input id="input" type="text" maxlength="500" enterkeyhint="send" placeholder="ask titan anything…" aria-label="Command">
       <button class="btn" type="submit">SEND</button>
       <button class="btn" type="button" id="mic">MIC</button>
       <button class="btn" type="button" id="mute">VOICE ON</button>
     </form>
   </section>
+
+  <!-- RIGHT: conversation -->
+  <section class="side right">
+    <div class="card grow">
+      <h2>COMMS // LOG <i id="logCount">0</i></h2>
+      <div id="log" role="log" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <div class="status" id="statusLine">
+    <span>[<b>model</b>:<em id="st-model">—</em>]</span>
+    <span>[<b>tts</b>:<em id="st-voice">—</em>]</span>
+    <span>[<b>ollama</b>:<em id="st-ollama">—</em>]</span>
+    <span>[<b>wake</b>:<em id="st-wake">—</em>]</span>
+    <span>[<b>ram</b>:<em id="st-ram">—</em>]</span>
+    <span>[<b>agent</b>:<em id="st-mode">—</em>]</span>
+    <span>[<b>net</b>:<em>offline-first</em>]</span>
+  </div>
 </div>
 
+<!-- hidden wake toggle keeps the old id; the wheel's WAKE segment drives it -->
+<button type="button" id="wakeToggle" hidden>WAKE WORD OFF</button>
+
 <!-- login -->
-<div class="overlay" id="loginOverlay">
-  <form class="panel card" id="loginForm" autocomplete="off">
+<div class="overlay" id="loginOverlay" hidden>
+  <form class="card login" id="loginForm" autocomplete="off">
     <h3 id="loginTitle">IDENTITY CHECK</h3>
     <p id="loginHelp">Enter your name and age to unlock Titan.</p>
     <label for="loginName">NAME</label>
@@ -219,7 +336,7 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
 
 <!-- shutdown -->
 <div class="overlay" id="offOverlay" hidden>
-  <div class="panel card" style="text-align:center">
+  <div class="card login" style="text-align:center">
     <h3>TITAN OFFLINE</h3>
     <p>Session closed. You can close this tab.<br>To start again, run the server and refresh the page.</p>
   </div>
@@ -232,6 +349,8 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
   const $ = (s) => document.querySelector(s);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const svgEl = (tag, attrs) => { const el = document.createElementNS(SVGNS, tag); for (const k in attrs) el.setAttribute(k, attrs[k]); return el; };
 
   // ---------- C1: shared state ----------
   const state = {
@@ -258,6 +377,7 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
 
   // ---------- C3: conversation log (textContent only, never innerHTML) ----------
   const WHO = { you: "YOU", titan: "TITAN", sys: "SYS", err: "ERROR" };
+  let logCount = 0;
   function scrollLog() { logEl.scrollTop = logEl.scrollHeight; }
   function typeText(el, text) {
     let i = 0;
@@ -269,44 +389,49 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
   }
   function log(kind, text, instant) {
     const row = document.createElement("div"); row.className = "row " + kind;
-    const ts = document.createElement("span"); ts.className = "ts"; ts.textContent = new Date().toLocaleTimeString("en-GB");
+    const meta = document.createElement("div"); meta.className = "meta";
     const who = document.createElement("span"); who.className = "who"; who.textContent = WHO[kind];
-    const msg = document.createElement("span"); msg.className = "msg";
-    row.append(ts, who, msg); logEl.append(row);
+    const ts = document.createElement("span"); ts.className = "ts"; ts.textContent = new Date().toLocaleTimeString("en-GB");
+    meta.append(who, ts);
+    const msg = document.createElement("div"); msg.className = "msg";
+    row.append(meta, msg); logEl.append(row);
     while (logEl.children.length > 300) logEl.firstChild.remove();
     if (kind === "titan" && !instant && !calm) typeText(msg, text); else msg.textContent = text;
+    $("#logCount").textContent = String(++logCount).padStart(3, "0");
     scrollLog();
+    return msg;
   }
 
-  // ---------- C4: status chips ----------
+  // ---------- C4: status chips + status line ----------
   function setChip(name, level, text) {
     const chip = $("#chip-" + name); if (!chip) return;
     chip.className = "chip " + level;
     chip.querySelector(".v").textContent = text;
   }
+  function setStatus(id, text, level) {
+    const el = $("#st-" + id); if (!el) return;
+    el.textContent = text; el.className = level || "";
+  }
 
-  // ---------- C5: voice out (local voices only, so Titan stays offline) ----------
+  // ---------- C5: voice out (Piper via /api/tts, browser voice as fallback) ----------
   const synth = window.speechSynthesis;
   function pickVoice() {
-    if (!synth) { setChip("voice", "bad", "NOT SUPPORTED IN THIS BROWSER"); return; }
+    if (!synth) return;
     const local = synth.getVoices().filter((v) => v.localService);
-    if (!local.length) { setChip("voice", "warn", "NO OFFLINE VOICE FOUND"); return; }
     const english = local.filter((v) => /^en/i.test(v.lang));
     const candidates = english.length ? english : local;
+    if (!candidates.length) return;
     const score = (v) => {
       const name = v.name.toLowerCase();
+      if (/en-gb/i.test(v.lang) && /natural|neural/.test(name)) return 120;
       if (/natural|neural|online/.test(name)) return 100;
-      if (/mark|george|ryan|daniel|arthur/.test(name)) return 80;
-      if (/zira/.test(name)) return 70;
+      if (/george|ryan|arthur|mark/.test(name)) return 80;
       if (/en-gb/i.test(v.lang)) return 60;
-      if (/david|guy/.test(name)) return 50;
       return 10;
     };
-    const v = candidates.reduce((best, current) => score(current) > score(best) ? current : best);
-    state.voice = v;
-    setChip("voice", "ok", v.name.replace(/^Microsoft /, "").replace(/ - .*$/, ""));
+    state.voice = candidates.reduce((best, current) => score(current) > score(best) ? current : best);
   }
-  if (synth) { pickVoice(); synth.onvoiceschanged = pickVoice; } else { pickVoice(); }
+  if (synth) { pickVoice(); synth.onvoiceschanged = pickVoice; }
 
   function speakBrowser(text) {
     if (!synth || !state.voice) return;
@@ -317,10 +442,19 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
     synth.speak(u);
   }
 
-  // Piper neural voice: server.py turns each sentence into WAV audio (/api/tts).
   // Sentences are fetched as soon as they arrive and played strictly in order.
-  // If Piper is unavailable, Titan falls back to the browser's offline voice.
-  const speech = { queue: [], playing: false, audio: null, finish: null, piper: true, generation: 0 };
+  const speech = { queue: [], playing: false, audio: null, finish: null, piper: true, generation: 0, unlocked: false };
+  // iPhone Safari only lets an <audio> element play sound after it has been
+  // started inside a tap. Unlock one player on the first tap and reuse it.
+  const player = new Audio(); player.preload = "auto";
+  const SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+  function unlockAudio() {
+    if (speech.unlocked) return;
+    speech.unlocked = true;
+    player.src = SILENT_WAV;
+    player.play().catch(() => { speech.unlocked = false; });
+  }
+  for (const ev of ["pointerdown", "touchend", "keydown"]) window.addEventListener(ev, unlockAudio, { passive: true });
   async function fetchSpeech(text) {
     try {
       const res = await fetch("/api/tts", {
@@ -342,47 +476,45 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
       if (gen !== speech.generation) { if (url) URL.revokeObjectURL(url); break; }
       if (!url) {
         speech.piper = false;
-        setChip("voice", "warn", "PIPER OFF · BROWSER VOICE");
+        setChip("voice", "warn", "BROWSER VOICE (PIPER OFF)");
         speakBrowser(item.text);
         continue;
       }
-      setChip("voice", "ok", "PIPER NEURAL");
       state.speaking = true;
       await new Promise((resolve) => {
-        const a = new Audio(url); speech.audio = a; speech.finish = resolve;
-        a.onended = a.onerror = resolve;
-        a.play().catch(resolve);
+        speech.audio = player; speech.finish = resolve;
+        player.onended = player.onerror = resolve;
+        player.src = url;
+        player.play().catch(resolve);
       });
       URL.revokeObjectURL(url);
     }
-    if (gen === speech.generation) {      // a newer reply may already own the player
+    if (gen === speech.generation) {
       state.speaking = false; speech.playing = false; speech.audio = null;
     }
   }
   function stopSpeech() {
     speech.generation++; speech.queue = [];
     if (speech.audio) speech.audio.pause();
-    if (speech.finish) speech.finish();   // pause() never fires "ended"
+    if (speech.finish) speech.finish();
     speech.audio = null; speech.finish = null;
     speech.playing = false;
     if (synth) synth.cancel();
     state.speaking = false;
   }
-  function speakQueued(text) {           // add one sentence after what is already queued
+  function speakQueued(text) {
     if (state.muted || !text) return;
     if (!speech.piper) { speakBrowser(text); return; }
     speech.queue.push({ text, audio: fetchSpeech(text) });
     playQueue();
   }
-  function speak(text) {                 // interrupt and say this instead
-    stopSpeech();
-    speakQueued(text);
-  }
+  function speak(text) { stopSpeech(); speakQueued(text); }
 
   // ---------- C6: sending commands (reply streams in sentence by sentence) ----------
   async function send(text) {
     text = text.trim();
     if (!text || state.thinking) return;
+    wakeUp();
     history.push(text); histPos = history.length;
     log("you", text);
     stopSpeech();
@@ -411,7 +543,7 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
           if (!line) continue;
           const event = JSON.parse(line);
           if (event.sentence) {
-            if (!liveRow) { log("titan", "", true); liveRow = logEl.lastElementChild.querySelector(".msg"); }
+            if (!liveRow) liveRow = log("titan", "", true);
             liveText += (liveText ? " " : "") + event.sentence;
             liveRow.textContent = liveText; scrollLog();
             speakQueued(event.sentence);
@@ -425,13 +557,92 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
       if (done.keep_running === false) shutdown();
     } catch (e) {
       log("err", "Lost contact with the Titan server. Is the terminal still running?");
-    } finally { state.thinking = false; }
+    } finally { state.thinking = false; loadMemories(); }
   }
 
-  // ---------- C7: microphone (offline Vosk, runs inside server.py) ----------
+  // ---------- C7: microphone ----------
+  // Records on THIS device (phone or laptop browser), then server.py turns the
+  // audio into text offline with Vosk (/api/transcribe). Stops by itself
+  // after you finish speaking; tap MIC again to stop early.
+  const rec = { active: false };
+  const MIC_LABEL = micBtn.textContent;
   async function listen() {
+    wakeUp();
+    if (rec.active) { stopRecording(); return; }
+    if (state.thinking) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.isSecureContext) {
+      return listenOnLaptop();
+    }
+    stopSpeech();
+    try {
+      rec.stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+    } catch (e) {
+      log("err", "Microphone permission was refused. Allow it in your browser settings, or type instead.");
+      return;
+    }
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    rec.ctx = new Ctx(); await rec.ctx.resume();
+    const source = rec.ctx.createMediaStreamSource(rec.stream);
+    rec.node = rec.ctx.createScriptProcessor(4096, 1, 1);
+    Object.assign(rec, { active: true, chunks: [], rate: rec.ctx.sampleRate, heard: false, started: performance.now(), quietSince: performance.now() });
+    rec.node.onaudioprocess = (e) => {
+      if (!rec.active) return;
+      const d = e.inputBuffer.getChannelData(0);
+      rec.chunks.push(new Float32Array(d));
+      let sum = 0; for (let i = 0; i < d.length; i++) sum += d[i] * d[i];
+      const now = performance.now();
+      if (Math.sqrt(sum / d.length) > 0.02) { rec.heard = true; rec.quietSince = now; }
+      const silentAfterSpeech = rec.heard && now - rec.quietSince > 1300;
+      const nothingSaid = !rec.heard && now - rec.started > 7000;
+      if (silentAfterSpeech || nothingSaid || now - rec.started > 15000) stopRecording();
+    };
+    source.connect(rec.node); rec.node.connect(rec.ctx.destination);
+    state.listening = true; micBtn.classList.add("rec"); micBtn.textContent = "STOP";
+    if (navigator.vibrate) navigator.vibrate(15);
+  }
+  function toPcm16(chunks, rate) {
+    let n = 0; for (const c of chunks) n += c.length;
+    const all = new Float32Array(n); let o = 0; for (const c of chunks) { all.set(c, o); o += c.length; }
+    const ratio = rate / 16000, out = new Int16Array(Math.floor(n / ratio));
+    for (let i = 0; i < out.length; i++) {
+      const a = Math.floor(i * ratio), b = Math.min(n, Math.floor((i + 1) * ratio));
+      let s = 0; for (let j = a; j < b; j++) s += all[j];
+      const v = Math.max(-1, Math.min(1, s / Math.max(1, b - a)));
+      out[i] = v < 0 ? v * 0x8000 : v * 0x7fff;
+    }
+    return out;
+  }
+  async function stopRecording() {
+    if (!rec.active) return;
+    rec.active = false;
+    try { rec.node.disconnect(); } catch (e) { /* already gone */ }
+    rec.stream.getTracks().forEach((t) => t.stop());
+    rec.ctx.close();
+    state.listening = false; micBtn.classList.remove("rec"); micBtn.textContent = MIC_LABEL;
+    if (!rec.heard) { log("err", "I didn't hear anything. Tap MIC and speak."); return; }
+    const pcm = toPcm16(rec.chunks, rec.rate);
+    state.thinking = true;
+    let heard = "";
+    try {
+      const res = await fetch("/api/transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream", "X-Titan-Token": state.token || "" },
+        body: pcm.buffer,
+      });
+      if (res.status === 401) { relogin("Session expired. Please verify again."); return; }
+      const data = await res.json().catch(() => ({}));
+      heard = data.text || "";
+      if (!heard) log("err", data.error || "I couldn't make that out. Try again?");
+    } catch (e) {
+      log("err", "Lost contact with the Titan server.");
+    } finally { state.thinking = false; }
+    if (heard) await send(heard);
+  }
+
+  // Fallback: listen with the laptop's own microphone (Vosk inside server.py).
+  async function listenOnLaptop() {
     if (state.wakeWordEnabled) {
-      log("sys", "Say “Titan”, then speak your command.");
+      log("sys", "Wake word is on: say “Titan”, then speak your command.");
       return;
     }
     if (state.listening || state.thinking) return;
@@ -443,11 +654,7 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
       const r = await api("/api/listen", {});
       if (r.status === 401) { relogin("Session expired. Please verify again."); return; }
       heard = r.data.text || "";
-      if (!heard) {
-        const notSetUp = (r.data.error || "").includes("not set up");
-        setChip("mic", notSetUp ? "bad" : "ok", notSetUp ? "NOT SET UP (run setup_titan.py)" : "READY");
-        log("err", r.data.error || "I did not hear anything.");
-      } else { setChip("mic", "ok", "READY"); }
+      if (!heard) log("err", r.data.error || "I did not hear anything.");
     } catch (e) {
       log("err", "Lost contact with the Titan server.");
     } finally { state.listening = false; micBtn.classList.remove("on"); }
@@ -455,16 +662,29 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
   }
 
   // ---------- C8: live stats ----------
-  const ARC = 226.19, CIRC = 301.59;
-  function setGauge(id, value) {
-    const g = $("#g-" + id), fg = g.querySelector(".fg"), t = g.querySelector("text");
-    if (value === null || value === undefined) {
-      fg.style.strokeDasharray = `0 ${CIRC}`; t.textContent = "N/A"; g.setAttribute("class", "gauge"); return;
-    }
-    const v = Math.max(0, Math.min(100, value));
-    fg.style.strokeDasharray = `${(ARC * v) / 100} ${CIRC}`;
-    t.textContent = Math.round(v) + "%";
-    g.setAttribute("class", "gauge" + (v >= 85 ? " hot" : v >= 60 ? " warn" : ""));
+  const BARS = 24;
+  for (const id of ["cpu", "ram"]) {
+    const box = $("#bars-" + id);
+    for (let i = 0; i < BARS; i++) box.append(document.createElement("i"));
+  }
+  function setBars(id, value) {
+    const box = $("#bars-" + id), val = $("#" + id + "Val");
+    if (value === null || value === undefined) { val.textContent = "N/A"; return; }
+    const v = Math.max(0, Math.min(100, value)), lit = Math.round((v / 100) * BARS);
+    [...box.children].forEach((b, i) => b.classList.toggle("on", i < lit));
+    box.className = "bars" + (v >= 85 ? " hot" : v >= 65 ? " warn" : "");
+    val.textContent = Math.round(v) + "%";
+  }
+  function wakeLevel(status) {
+    return status.startsWith("LISTENING FOR TITAN") ? "ok" : status.includes("ERROR") ? "bad" : "warn";
+  }
+  function showWake(status) {
+    const label = state.wakeWordEnabled ? status : "OFF";
+    setChip("mic", state.wakeWordEnabled ? wakeLevel(status) : "warn", state.wakeWordEnabled ? status : "OFF · USE MIC");
+    setStatus("wake", label.toLowerCase(), state.wakeWordEnabled ? wakeLevel(status) : "warn");
+    $("#wakeToggle").textContent = state.wakeWordEnabled ? "WAKE WORD ON" : "WAKE WORD OFF";
+    const seg = document.querySelector('.seg[data-action="wake"]');
+    if (seg) seg.classList.toggle("on", state.wakeWordEnabled);
   }
   async function pollStats() {
     try {
@@ -472,19 +692,86 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
       if (r.status === 401) { relogin("Session expired. Please verify again."); return; }
       if (!r.ok) throw new Error("bad status");
       const s = r.data;
-      setGauge("cpu", s.cpu_percent); setGauge("ram", s.ram_percent);
-      $("#ramSub").textContent = s.ram_used_gb != null ? `${s.ram_used_gb} / ${s.ram_total_gb} GB` : " ";
+      setBars("cpu", s.cpu_percent); setBars("ram", s.ram_percent);
       $("#procs").textContent = s.processes != null ? s.processes : "--";
       $("#uptime").textContent = s.uptime_hours != null ? s.uptime_hours + "h" : "--";
       setChip("core", "ok", "ONLINE");
-      setChip("ollama", s.ollama ? "ok" : "warn", s.ollama ? "ONLINE" : "OFFLINE · typed commands still work");
+      setChip("ollama", s.ollama ? "ok" : "warn", s.ollama ? (s.model || "ONLINE") : "OFFLINE · commands still work");
+      setStatus("model", s.model || "—");
+      setStatus("voice", s.voice ? "piper/" + s.voice : "—", speech.piper ? "" : "warn");
+      setStatus("ollama", s.ollama ? "online" : "offline", s.ollama ? "ok" : "warn");
+      setStatus("ram", s.ram_used_gb != null ? `${s.ram_used_gb}/${s.ram_total_gb}gb` : "—");
+      if (speech.piper && s.voice) setChip("voice", "ok", "PIPER · " + s.voice.replace(/^en_(GB|US)-/, "").replace(/-medium$/, "").toUpperCase());
       state.wakeWordEnabled = !!s.wake_word_enabled;
-      $("#wakeToggle").textContent = state.wakeWordEnabled ? "WAKE WORD ON" : "WAKE WORD OFF";
-      const wakeStatus = s.wake_word || "OFF";
-      const wakeLevel = wakeStatus.startsWith("LISTENING FOR TITAN") ? "ok" :
-        wakeStatus.includes("ERROR") ? "bad" : "warn";
-      setChip("mic", wakeLevel, state.wakeWordEnabled ? wakeStatus : "OFF · PRESS MIC TO TALK");
-    } catch (e) { setChip("core", "bad", "LINK LOST"); }
+      showWake(s.wake_word || "OFF");
+      if (s.autonomy) renderAutonomy(s.autonomy);
+    } catch (e) { setChip("core", "bad", "LINK LOST"); setStatus("ollama", "unknown", "bad"); }
+  }
+
+  // ---------- C8b: autonomy panel + "what I know about you" ----------
+  let autoKey = "";
+  function renderAutonomy(a) {
+    const key = JSON.stringify(a);
+    if (key === autoKey) return;
+    autoKey = key; state.auto = a;
+    $("#mode-supervised").classList.toggle("active", a.mode === "supervised");
+    $("#mode-autonomous").classList.toggle("active", a.mode === "autonomous");
+    $("#selfCheck").textContent = a.self_check ? "ON" : "OFF"; $("#selfCheck").classList.toggle("active", a.self_check);
+    $("#watchdog").textContent = a.watchdog ? "ON" : "OFF"; $("#watchdog").classList.toggle("active", a.watchdog);
+    $("#briefNow").textContent = a.briefing === "off" ? "OFF" : a.briefing + " ▸";
+    setStatus("mode", `${a.mode}${a.self_check ? "+check" : ""}`);
+    $("#autoSug").textContent = a.suggestions ? `${a.suggestions} SUGGESTION${a.suggestions > 1 ? "S" : ""}` : "";
+    const goals = $("#goals"); goals.textContent = "";
+    if (!a.goals.length) goals.textContent = "none yet · try “every morning at 8 check the weather and news”";
+    for (const g of a.goals) {
+      const line = document.createElement("div");
+      const t = document.createElement("b"); t.textContent = g.time; line.append(t, " " + g.task);
+      goals.append(line);
+    }
+    const routines = $("#routines"); routines.textContent = "";
+    if (!a.routines.length) {
+      const empty = document.createElement("span"); empty.className = "mini";
+      empty.textContent = "none yet · I'll suggest some as I learn"; routines.append(empty);
+    }
+    for (const name of a.routines) {
+      const b = document.createElement("button"); b.type = "button"; b.className = "pill"; b.textContent = "/" + name;
+      b.addEventListener("click", () => send("run routine " + name));
+      routines.append(b);
+    }
+  }
+  for (const id of ["mode-supervised", "mode-autonomous"]) {
+    $("#" + id).addEventListener("click", (e) => send(e.currentTarget.dataset.say));
+  }
+  $("#selfCheck").addEventListener("click", () => send(`turn ${state.auto && state.auto.self_check ? "off" : "on"} self checking`));
+  $("#watchdog").addEventListener("click", () => send(`turn ${state.auto && state.auto.watchdog ? "off" : "on"} the watchdog`));
+  $("#briefNow").addEventListener("click", () => send("give me my briefing"));
+  $("#autoSug").addEventListener("click", () => send("list routines"));
+
+  async function loadMemories() {
+    if (!state.token) return;
+    try {
+      const r = await api("/api/memories");
+      if (!r.ok) return;
+      const list = $("#memories"), items = r.data.memories || [];
+      list.textContent = "";
+      $("#memCount").textContent = String(items.length);
+      if (!items.length) {
+        const li = document.createElement("li"); li.className = "mini";
+        li.textContent = "Nothing saved yet. Say “remember that…”."; list.append(li);
+      }
+      for (const text of items) {
+        const li = document.createElement("li");
+        const span = document.createElement("span"); span.textContent = text;
+        const del = document.createElement("button"); del.type = "button"; del.textContent = "×";
+        del.title = "Forget this"; del.setAttribute("aria-label", "Forget: " + text);
+        del.addEventListener("click", async () => {
+          await api("/api/memories/forget", { text });
+          log("sys", "Forgotten: " + text);
+          loadMemories();
+        });
+        li.append(span, del); list.append(li);
+      }
+    } catch (e) { /* panel just stays as it was */ }
   }
   async function pollAlerts() {
     try {
@@ -492,6 +779,7 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
       if (r.status === 401) { relogin("Session expired. Please verify again."); return; }
       if (!r.ok) throw new Error("bad status");
       for (const alert of r.data.alerts || []) {
+        wakeUp();
         log("titan", alert.text, true);
         speakQueued(alert.text);
       }
@@ -500,7 +788,9 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
   function tickClock() {
     const d = new Date();
     $("#clock").textContent = d.toLocaleTimeString("en-GB");
-    $("#date").textContent = d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
+    $("#bigClock").textContent = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    const date = d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
+    $("#date").textContent = date; $("#bigDate").textContent = date;
   }
   setInterval(tickClock, 1000); tickClock();
 
@@ -511,12 +801,8 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
       const r = await api("/api/status");
       state.enroll = !!r.data.enroll;
       state.wakeWordEnabled = !!r.data.wake_word_enabled;
-      $("#wakeToggle").textContent = state.wakeWordEnabled ? "WAKE WORD ON" : "WAKE WORD OFF";
-      const wakeStatus = r.data.wake_word || "OFF";
-      const wakeLevel = wakeStatus === "LISTENING FOR TITAN" ? "ok" :
-        wakeStatus.includes("ERROR") ? "bad" : "warn";
-      setChip("mic", wakeLevel, state.wakeWordEnabled ? wakeStatus : "OFF · PRESS MIC TO TALK");
-    } catch (e) { loginMsg.textContent = "Cannot reach the Titan server."; return; }
+      showWake(r.data.wake_word || "OFF");
+    } catch (e) { loginMsg.textContent = "Cannot reach the Titan server."; loginOverlay.hidden = false; return; }
     $("#loginTitle").textContent = state.enroll ? "FIRST-TIME SETUP" : "IDENTITY CHECK";
     $("#loginHelp").textContent = state.enroll
       ? "Enter your name and age. This becomes your identity check from now on."
@@ -526,8 +812,30 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
     loginOverlay.hidden = false;
     $("#loginName").focus();
   }
+  // Remember this device's session, so reopening Titan on the phone doesn't
+  // ask for the identity check again. Tokens only live until the server
+  // restarts; after that the identity check comes back.
+  const SESSION_KEY = "titan.session";
+  function saveSession() {
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify({ token: state.token, name: state.name })); } catch (e) { /* private mode */ }
+  }
+  function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ } }
+  async function resumeSession() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch (e) { saved = null; }
+    if (saved && saved.token) {
+      state.token = saved.token; state.name = saved.name || "";
+      try {
+        const r = await api("/api/stats");
+        if (r.ok) { boot(null, true); return; }
+      } catch (e) { /* server unreachable: fall through to login */ }
+      state.token = null; clearSession();
+    }
+    initLogin();
+  }
   function relogin(message) {
     clearInterval(state.statsTimer); clearInterval(state.alertsTimer); state.token = null;
+    clearSession();
     initLogin(message);
   }
   $("#loginForm").addEventListener("submit", async (e) => {
@@ -537,16 +845,21 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
       const r = await api("/api/login", { name: $("#loginName").value, age: $("#loginAge").value });
       if (!r.ok) { loginMsg.textContent = r.data.error || "Login failed."; return; }
       state.token = r.data.token; state.name = r.data.name;
+      saveSession();
       $("#loginName").value = ""; $("#loginAge").value = "";
       loginOverlay.hidden = true;
       boot(r.data.greeting);
     } catch (err) { loginMsg.textContent = "Cannot reach the Titan server."; }
   });
-  async function boot(greeting) {
+  async function boot(greeting, resumed) {
+    loginOverlay.hidden = true;
+    $("#userName").textContent = state.name.toUpperCase();
     pollStats(); state.statsTimer = setInterval(pollStats, 1000);
     pollAlerts(); state.alertsTimer = setInterval(pollAlerts, 1000);
+    loadMemories();
+    if (resumed) { log("sys", `Session resumed. Welcome back, ${state.name}.`); return; }
     for (const line of ["Core link established.", `Identity confirmed: ${state.name}.`, "Local command engine online.", "Standing by."]) {
-      log("sys", line); await sleep(240);
+      log("sys", line); await sleep(220);
     }
     const greet = greeting || `Hello, ${state.name}. I'm ready when you are.`;
     log("titan", greet); speak(greet);
@@ -556,31 +869,30 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
     await sleep(2500);
     clearInterval(state.statsTimer); clearInterval(state.alertsTimer);
     try { await api("/api/logout", {}); } catch (e) { /* server may already be gone */ }
-    state.token = null;
+    state.token = null; clearSession();
     $("#offOverlay").hidden = false;
   }
 
-  // ---------- C10: buttons and keyboard ----------
+  // ---------- C10: wake-word toggle, buttons and keyboard ----------
+  async function toggleWake() {
+    const enabled = !state.wakeWordEnabled;
+    try {
+      const r = await api("/api/wake-word", { enabled });
+      if (!r.ok) { log("err", r.data.error || "Could not change wake-word listening."); return; }
+      state.wakeWordEnabled = r.data.enabled;
+      showWake(r.data.status || "OFF");
+      log("sys", state.wakeWordEnabled ? "Wake word on. Say “Titan” any time." : "Wake word off. Use the MIC button to talk.");
+    } catch (e) {
+      log("err", "Could not reach the Titan server to change wake-word listening.");
+    }
+  }
+  $("#wakeToggle").addEventListener("click", toggleWake);
   $("#form").addEventListener("submit", (e) => { e.preventDefault(); const t = inputEl.value; inputEl.value = ""; send(t); });
   inputEl.addEventListener("keydown", (e) => {
     if (e.key === "ArrowUp" && history.length) { histPos = Math.max(0, histPos - 1); inputEl.value = history[histPos] || ""; e.preventDefault(); }
     if (e.key === "ArrowDown" && history.length) { histPos = Math.min(history.length, histPos + 1); inputEl.value = history[histPos] || ""; e.preventDefault(); }
   });
-  $("#quick").addEventListener("click", (e) => { const b = e.target.closest("button[data-cmd]"); if (b) send(b.dataset.cmd); });
   micBtn.addEventListener("click", listen);
-  $("#wakeToggle").addEventListener("click", async () => {
-    const enabled = !state.wakeWordEnabled;
-    $("#wakeToggle").disabled = true;
-    try {
-      const r = await api("/api/wake-word", { enabled });
-      if (!r.ok) { log("err", r.data.error || "Could not change wake-word listening."); return; }
-      state.wakeWordEnabled = r.data.enabled;
-      $("#wakeToggle").textContent = state.wakeWordEnabled ? "WAKE WORD ON" : "WAKE WORD OFF";
-      setChip("mic", r.data.status === "LISTENING FOR TITAN" ? "ok" : "warn", r.data.status);
-    } catch (e) {
-      log("err", "Could not reach the Titan server to change wake-word listening.");
-    } finally { $("#wakeToggle").disabled = false; }
-  });
   muteBtn.addEventListener("click", () => {
     state.muted = !state.muted;
     muteBtn.textContent = state.muted ? "VOICE OFF" : "VOICE ON";
@@ -588,27 +900,120 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
     if (state.muted) stopSpeech();
   });
 
-  // ---------- C11: the arc reactor (canvas animation) ----------
+  // ---------- C11: the command wheel (SVG) ----------
+  // Each segment either sends a command to Titan or runs a local action.
+  const ICONS = {
+    time:  "M0-9a9 9 0 1 0 0.01 0M0-5v5l4 3",
+    cloud: "M-9 5h17a5 5 0 0 0-1-10a7 7 0 0 0-13 2a4.5 4.5 0 0 0-3 8z",
+    news:  "M-9-8h14v16h-14zM5-4h4v10a2 2 0 0 1-4 0M-6-4h8M-6 0h8M-6 4h5",
+    note:  "M-7-9h10l4 4v14h-14zM3-9v4h4M-4-1h8M-4 3h8",
+    cpu:   "M-6-6h12v12h-12zM-2-2h4v4h-4zM-3-9v3M3-9v3M-3 6v3M3 6v3M-9-3h3M-9 3h3M6-3h3M6 3h3",
+    mic:   "M-3-9a3 3 0 0 1 6 0v8a3 3 0 0 1-6 0zM-7-2a7 7 0 0 0 14 0M0 5v4M-4 9h8",
+    wave:  "M-10 0h3l2-6 3 12 3-14 3 16 2-8h4",
+    shot:  "M-9-5h4l2-3h6l2 3h4v12h-18zM0-2a4 4 0 1 0 0.01 0",
+  };
+  const SEGMENTS = [
+    { label: "TIME",    icon: "time",  cmd: "what time is it" },
+    { label: "WEATHER", icon: "cloud", cmd: "what's the weather" },
+    { label: "NEWS",    icon: "news",  cmd: "news headlines" },
+    { label: "NOTES",   icon: "note",  cmd: "read notes" },
+    { label: "SYSTEM",  icon: "cpu",   cmd: "run a system diagnosis" },
+    { label: "VOICE",   icon: "mic",   action: "listen" },
+    { label: "WAKE",    icon: "wave",  action: "wake" },
+    { label: "SNAP",    icon: "shot",  cmd: "take a screenshot" },
+  ];
+  const W = { cx: 250, cy: 250, rIn: 152, rOut: 238 };
+  function polar(r, deg) { const a = (deg - 90) * Math.PI / 180; return [W.cx + r * Math.cos(a), W.cy + r * Math.sin(a)]; }
+  function sector(a0, a1) {
+    const [x0, y0] = polar(W.rOut, a0), [x1, y1] = polar(W.rOut, a1);
+    const [x2, y2] = polar(W.rIn, a1), [x3, y3] = polar(W.rIn, a0);
+    return `M${x0} ${y0}A${W.rOut} ${W.rOut} 0 0 1 ${x1} ${y1}L${x2} ${y2}A${W.rIn} ${W.rIn} 0 0 0 ${x3} ${y3}Z`;
+  }
+  function buildWheel() {
+    const svg = $("#wheelSvg");
+    const ring = svg.appendChild(svgEl("path", {
+      class: "ring-bg", "fill-rule": "evenodd",
+      d: `M${W.cx - W.rOut} ${W.cy}a${W.rOut} ${W.rOut} 0 1 0 ${W.rOut * 2} 0a${W.rOut} ${W.rOut} 0 1 0 ${-W.rOut * 2} 0z` +
+         `M${W.cx - W.rIn} ${W.cy}a${W.rIn} ${W.rIn} 0 1 0 ${W.rIn * 2} 0a${W.rIn} ${W.rIn} 0 1 0 ${-W.rIn * 2} 0z`,
+    }));
+    ring.setAttribute("aria-hidden", "true");
+    const step = 360 / SEGMENTS.length, gap = 0.8;
+    SEGMENTS.forEach((s, i) => {
+      const mid = i * step, a0 = mid - step / 2 + gap, a1 = mid + step / 2 - gap;
+      const g = svgEl("g", { class: "seg", tabindex: "0", role: "button", "aria-label": s.label });
+      if (s.cmd) g.dataset.cmd = s.cmd;
+      if (s.action) g.dataset.action = s.action;
+      g.append(svgEl("path", { d: sector(a0, a1) }));
+      const [ix, iy] = polar((W.rIn + W.rOut) / 2, mid);
+      g.append(svgEl("path", { class: "ico", d: ICONS[s.icon], transform: `translate(${ix} ${iy - 7}) scale(1.15)` }));
+      const t = svgEl("text", { x: ix, y: iy + 21 }); t.textContent = s.label; g.append(t);
+      const run = () => {
+        g.classList.add("active"); setTimeout(() => g.classList.remove("active"), 450);
+        if (navigator.vibrate) navigator.vibrate(12);
+        if (!state.token) return;
+        if (s.action === "listen") listen();
+        else if (s.action === "wake") { wakeUp(); toggleWake(); }
+        else send(s.cmd);
+      };
+      g.addEventListener("click", run);
+      g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); run(); } });
+      svg.append(g);
+    });
+    // fine tick ring just outside the wheel
+    for (let i = 0; i < 120; i++) {
+      const major = i % 15 === 0, [x0, y0] = polar(W.rOut + 5, i * 3), [x1, y1] = polar(W.rOut + (major ? 12 : 8), i * 3);
+      svg.append(svgEl("line", { x1: x0, y1: y0, x2: x1, y2: y1, stroke: major ? "rgba(255,160,150,.45)" : "rgba(255,70,60,.14)", "stroke-width": major ? 1.4 : 1 }));
+    }
+  }
+  buildWheel();
+
+  // ---------- C12: HUD frame (thin border, corner brackets, top notch) ----------
+  function drawFrame() {
+    const svg = $("#frameSvg"), w = svg.clientWidth, h = svg.clientHeight;
+    if (!w || !h) return;
+    svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+    svg.textContent = "";
+    const n = Math.min(260, w * 0.22), d = 14, cx = w / 2, b = 26;
+    svg.append(svgEl("path", { class: "line",
+      d: `M0 0H${cx - n - d}L${cx - n} ${d}H${cx + n}L${cx + n + d} 0H${w}V${h}H0Z` }));
+    svg.append(svgEl("path", { class: "bracket",
+      d: `M0 ${b}V0H${b}M${w - b} 0H${w}V${b}M${w} ${h - b}V${h}H${w - b}M${b} ${h}H0V${h - b}` }));
+    svg.append(svgEl("path", { class: "bracket", d: `M${cx - 40} ${d + 5}H${cx + 40}` }));
+  }
+  window.addEventListener("resize", drawFrame); drawFrame();
+
+  // ---------- C13: standby (core + big clock after inactivity) ----------
+  const STANDBY_AFTER_MS = 90 * 1000;
+  let lastActive = Date.now();
+  function wakeUp() { lastActive = Date.now(); document.body.classList.remove("standby"); }
+  for (const ev of ["mousemove", "mousedown", "keydown", "touchstart", "wheel"]) {
+    window.addEventListener(ev, wakeUp, { passive: true });
+  }
+  setInterval(() => {
+    const busy = state.thinking || state.speaking || state.listening || !state.token;
+    if (busy) { lastActive = Date.now(); document.body.classList.remove("standby"); return; }
+    if (Date.now() - lastActive > STANDBY_AFTER_MS) document.body.classList.add("standby");
+  }, 1000);
+
+  // ---------- C14: the core (canvas inside the wheel) ----------
   const canvas = $("#reactor"), ctx = canvas.getContext("2d");
-  const COLORS = { idle: [0, 229, 255], listening: [57, 255, 136], thinking: [255, 179, 0], speaking: [140, 245, 255] };
+  const COLORS = { idle: [255, 59, 48], listening: [255, 214, 205], thinking: [255, 181, 71], speaking: [255, 112, 72] };
   const LABELS = { idle: "STANDBY", listening: "LISTENING", thinking: "PROCESSING", speaking: "SPEAKING" };
-  // [outer spin deg/s, inner spin deg/s, energy 0..1]
-  const MOTION = { idle: [22, -34, 0.10], listening: [45, -70, 0.45], thinking: [170, -250, 0.30], speaking: [55, -90, 0.85] };
-  const R = { w: 0, h: 0, t: 0, a: 0, b: 0, energy: 0.1, rgb: COLORS.idle.slice(), last: 0, label: "" };
+  const MOTION = { idle: [10, -16, 0.06], listening: [40, -60, 0.45], thinking: [150, -220, 0.3], speaking: [40, -70, 0.85] };
+  const R = { w: 0, t: 0, a: 0, b: 0, energy: 0.06, rgb: COLORS.idle.slice(), last: 0, label: "" };
 
   function resize() {
     const dpr = window.devicePixelRatio || 1, box = canvas.getBoundingClientRect();
     canvas.width = Math.max(1, Math.round(box.width * dpr));
     canvas.height = Math.max(1, Math.round(box.height * dpr));
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    R.w = box.width; R.h = box.height;
+    R.w = box.width;
   }
   window.addEventListener("resize", resize);
-  const rad = (d) => (d * Math.PI) / 180;
+  new ResizeObserver(resize).observe(canvas);
+  const rad = (deg) => (deg * Math.PI) / 180;
   const rgba = (c, a) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
-  function currentState() {
-    return state.speaking ? "speaking" : state.thinking ? "thinking" : state.listening ? "listening" : "idle";
-  }
+  const currentState = () => state.speaking ? "speaking" : state.thinking ? "thinking" : state.listening ? "listening" : "idle";
 
   function frame(now) {
     const dt = Math.min(0.05, (now - (R.last || now)) / 1000); R.last = now;
@@ -618,64 +1023,59 @@ form.cmd input{flex:1; min-width:0; background:rgba(0,229,255,.05); border:1px s
     const tc = COLORS[st];
     for (let i = 0; i < 3; i++) R.rgb[i] += (tc[i] - R.rgb[i]) * Math.min(1, dt * 6);
     if (R.label !== st) {
-      R.label = st; const el = $("#stateLabel");
-      el.textContent = LABELS[st]; el.style.color = rgba(tc, 1);
+      R.label = st;
+      const color = rgba(tc, 1);
+      $("#stateLabel").textContent = LABELS[st]; $("#stateLabel").style.color = color;
+      $("#coreSub").textContent = LABELS[st]; $("#coreSub").style.color = color;
     }
+    const w = R.w; if (!w) { requestAnimationFrame(frame); return; }
+    const s = w / 500, cx = w / 2, cy = w / 2, c = R.rgb;
+    ctx.clearRect(0, 0, w, w);
+    const pulse = 0.5 + 0.5 * Math.sin(R.t * (1.6 + 5 * R.energy));
 
-    const w = R.w, h = R.h; if (!w || !h) { requestAnimationFrame(frame); return; }
-    const s = Math.max(0.2, Math.min(w, h) / 440), cx = w / 2, cy = h / 2, c = R.rgb;
-    ctx.clearRect(0, 0, w, h);
-    const pulse = 0.5 + 0.5 * Math.sin(R.t * (2 + 5 * R.energy));
-
-    // glow behind everything
-    const gr = 100 * s * (1 + 0.08 * pulse + 0.12 * R.energy);
-    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, gr);
-    g.addColorStop(0, rgba(c, 0.55)); g.addColorStop(0.55, rgba(c, 0.14)); g.addColorStop(1, rgba(c, 0));
+    // soft glow
+    const gr = 150 * s * (1 + 0.05 * pulse + 0.1 * R.energy);
+    const g = ctx.createRadialGradient(cx, cy, 40 * s, cx, cy, gr);
+    g.addColorStop(0, rgba(c, 0.22)); g.addColorStop(0.6, rgba(c, 0.06)); g.addColorStop(1, rgba(c, 0));
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, gr, 0, 7); ctx.fill();
 
-    // outer ring: 8 segments, turning clockwise
-    ctx.lineCap = "butt"; ctx.strokeStyle = rgba(c, 0.95); ctx.lineWidth = 6 * s;
-    for (let i = 0; i < 8; i++) {
-      ctx.beginPath(); ctx.arc(cx, cy, 200 * s, rad(R.a + i * 45), rad(R.a + i * 45 + 30)); ctx.stroke();
-    }
-    // middle ring: 3 arcs, turning the other way
-    ctx.strokeStyle = rgba([c[0] + (255 - c[0]) * 0.35, c[1] + (255 - c[1]) * 0.35, c[2] + (255 - c[2]) * 0.35], 0.9);
-    ctx.lineWidth = 3 * s;
-    for (let i = 0; i < 3; i++) {
-      ctx.beginPath(); ctx.arc(cx, cy, 165 * s, rad(R.b + i * 120), rad(R.b + i * 120 + 80)); ctx.stroke();
-    }
-    // thin ring + dashed ring
-    ctx.strokeStyle = rgba(c, 0.3); ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(cx, cy, 140 * s, 0, 7); ctx.stroke();
-    ctx.setLineDash([3 * s, 7 * s]); ctx.strokeStyle = rgba(c, 0.45);
-    ctx.beginPath(); ctx.arc(cx, cy, 122 * s, 0, 7); ctx.stroke(); ctx.setLineDash([]);
-    // tick marks
-    for (let i = 0; i < 60; i++) {
-      const a = rad(i * 6 + R.a * 0.5), major = i % 5 === 0, r0 = 100 * s, r1 = (major ? 118 : 110) * s;
-      ctx.strokeStyle = rgba(c, major ? 0.9 : 0.35); ctx.lineWidth = major ? 2 : 1;
+    // rotating arcs between core and wheel
+    ctx.lineCap = "butt"; ctx.strokeStyle = rgba(c, 0.75); ctx.lineWidth = 2 * s;
+    for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(cx, cy, 136 * s, rad(R.a + i * 120), rad(R.a + i * 120 + 70)); ctx.stroke(); }
+    ctx.strokeStyle = rgba(c, 0.35); ctx.lineWidth = 1;
+    for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.arc(cx, cy, 126 * s, rad(R.b + i * 90), rad(R.b + i * 90 + 50)); ctx.stroke(); }
+    // ticks
+    for (let i = 0; i < 72; i++) {
+      const a = rad(i * 5), major = i % 6 === 0, r0 = 110 * s, r1 = (major ? 118 : 114) * s;
+      ctx.strokeStyle = rgba(c, major ? 0.55 : 0.18); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); ctx.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); ctx.stroke();
     }
-    // voice bars
-    ctx.lineCap = "round"; ctx.lineWidth = Math.max(2, 3 * s); ctx.strokeStyle = rgba(c, 0.95);
-    for (let i = 0; i < 48; i++) {
-      const a = rad((i * 360) / 48 + R.b * 0.15);
+    // voice bars around the core
+    ctx.lineCap = "round"; ctx.lineWidth = Math.max(1.5, 2.2 * s); ctx.strokeStyle = rgba(c, 0.9);
+    for (let i = 0; i < 64; i++) {
+      const a = rad((i * 360) / 64 + R.b * 0.1);
       const wave = Math.abs(Math.sin(R.t * 7 + i * 0.9) * Math.sin(R.t * 3.3 + i * 0.37));
-      const r0 = 54 * s, r1 = r0 + (3 + R.energy * 38 * (0.25 + wave)) * s;
+      const r0 = 84 * s, r1 = r0 + (2 + R.energy * 20 * (0.25 + wave)) * s;
       ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); ctx.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); ctx.stroke();
     }
-    // core
-    const cr = (30 + 4 * pulse + 6 * R.energy) * s;
-    ctx.fillStyle = rgba([c[0] + (255 - c[0]) * 0.6, c[1] + (255 - c[1]) * 0.6, c[2] + (255 - c[2]) * 0.6], 0.95);
-    ctx.beginPath(); ctx.arc(cx, cy, cr, 0, 7); ctx.fill();
-    ctx.strokeStyle = rgba(c, 1); ctx.lineWidth = 2 * s;
-    ctx.beginPath(); ctx.arc(cx, cy, cr + 7 * s, 0, 7); ctx.stroke();
+    // core disc
+    const cr = 74 * s;
+    const cg = ctx.createRadialGradient(cx, cy - cr * 0.3, cr * 0.1, cx, cy, cr);
+    cg.addColorStop(0, "rgba(52,14,14,.98)"); cg.addColorStop(1, "rgba(18,7,8,.98)");
+    ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(cx, cy, cr, 0, 7); ctx.fill();
+    ctx.strokeStyle = rgba(c, 0.85 + 0.15 * pulse); ctx.lineWidth = 1.6 * s;
+    ctx.shadowColor = rgba(c, 0.9); ctx.shadowBlur = (8 + 12 * R.energy) * s;
+    ctx.beginPath(); ctx.arc(cx, cy, cr, 0, 7); ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = rgba(c, 0.25); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, cr - 8 * s, rad(R.a * 2), rad(R.a * 2 + 300)); ctx.stroke();
 
     requestAnimationFrame(frame);
   }
 
-  // ---------- C12: start ----------
+  // ---------- C15: start ----------
   resize(); requestAnimationFrame(frame);
-  initLogin();
+  resumeSession();
 })();
 </script>
 </body>

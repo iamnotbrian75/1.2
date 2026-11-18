@@ -93,6 +93,7 @@ try:
     import titan_diagnostics as diagnostics
     import titan_rea as rea
     import titan_voice as voice_out
+    import titan_autonomy as autonomy
 except ImportError as err:
     print(f"ERROR: {err}")
     print("Put Titan's helper modules, including titan_rea.py, in the same folder as T.v1.1.py.")
@@ -474,6 +475,29 @@ def run_command(command, argument, text):
     raise KeyError(command)
 
 
+# Actions Titan may NOT take by itself during a multi-step task or routine.
+# These still work when the user asks for them directly.
+AGENT_BLOCKED = {"cleanup", "lock", "project_coder", "self_update", "rea_website"}
+
+
+def is_titan_action(text):
+    """True if the sentence is something Titan can do (not just conversation)."""
+    routed = match_local(text)
+    return routed is not None and routed[0] != "chat"
+
+
+def agent_execute(command_text):
+    """Run ONE command for the task planner / routines, refusing blocked actions."""
+    routed = match_local(command_text)
+    if routed is None or routed[0] == "chat":
+        return ("That isn't one of my actions. Use a command like 'set a timer for 10 minutes', "
+                "or answer that part yourself in your final reply.")
+    command, argument = routed
+    if command in AGENT_BLOCKED:
+        return f"Blocked: '{command}' needs the user to ask for it directly. Tell them that."
+    return run_command(command, argument, command_text)
+
+
 def run_rea_website(url):
     try:
         evidence = rea.inspect_website(url)
@@ -629,6 +653,7 @@ def build_router_prompt():
         "- add_note: save a note (put the note text in \"argument\")\n"
         "- read_notes: read saved notes\n"
         f"{skills.router_lines()}\n"
+        "- task: a goal that needs two or more different actions in a row, e.g. 'get me set up for revision'\n"
         "- chat: anything else - conversation, questions, advice, opinions, jokes, general knowledge\n"
         "Code-writing or programming-explanation requests are chat, not time or another device command. "
         "For example, 'write me a small code in python' means chat.\n"
@@ -670,7 +695,7 @@ def ask_ollama(text):
         return None, "bad"
     except Exception as err:
         return None, persona.error_kind(err)
-    if command in COMMANDS or command in skills.SKILL_NAMES or command == "rea_website":
+    if command in COMMANDS or command in skills.SKILL_NAMES or command in {"rea_website", "task"}:
         return (command, argument), "ok"
     return ("chat", ""), "ok"
 
@@ -903,6 +928,12 @@ def titan_handle(text, on_sentence=None):
                 persona.remember(text, memory_reply)
             return memory_reply, True
 
+        # modes, briefing, standing goals, routines and multi-step tasks
+        autonomy_reply = autonomy.handle(text)
+        if autonomy_reply is not None:
+            persona.remember(text, autonomy_reply)
+            return autonomy_reply, True
+
         if persona.is_capabilities_request(text) or persona.is_optimization_request(text):
             reply = persona.capabilities_response(persona.is_optimization_request(text))
             persona.remember(text, reply)
@@ -949,8 +980,15 @@ def titan_handle(text, on_sentence=None):
                     "name such as Instagram. I'll inspect it rather than opening it "
                     "in your normal browser."
                 )
+            elif command == "task":
+                reply, _ = autonomy.run_task(text)
             else:
                 reply = run_command(command, argument, text)
+                if command not in AGENT_BLOCKED:
+                    try:
+                        autonomy.record_command(command, text)     # for routine suggestions
+                    except Exception:
+                        pass
         persona.remember(text, reply)
         return reply, True
     except Exception as err:        # a bad command must never kill the assistant
@@ -961,8 +999,11 @@ def titan_handle(text, on_sentence=None):
 # SECTION 10: MAIN LOOP (terminal version)
 # =============================================================================
 def start_services():
-    """Start the background clock for timers/reminders (safe to call twice)."""
+    """Start the background clock for timers/reminders, plus Titan's watchdog,
+    heartbeat, daily briefing and standing goals (safe to call twice)."""
     skills.start()
+    autonomy.configure(agent_execute, is_titan_action, OLLAMA_URL, OLLAMA_MODEL, persona.KEEP_ALIVE)
+    autonomy.start()
 
 
 def main():

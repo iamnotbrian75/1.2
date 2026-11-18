@@ -332,6 +332,18 @@ def forget_memories(query=None):
         return removed
 
 
+def forget_memory_item(text):
+    """Forget exactly one saved memory (used by the dashboard's memory panel)."""
+    with _memory_lock:
+        path = _user_note_path()
+        memories = _read_memory_note(path)
+        if text not in memories:
+            return False
+        memories.remove(text)
+        _write_memory_note(path, memories)
+        return True
+
+
 def clear_history():
     _history.clear()
 

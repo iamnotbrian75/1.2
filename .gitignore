@@ -8,6 +8,9 @@ titan_profile.json
 titan_notes.txt
 titan_memory.json
 titan_memory.json.tmp
+titan_autonomy.json
+titan_reminders.json
+titan_settings.json
 
 # Big downloads
 vosk-model/

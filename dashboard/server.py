@@ -50,6 +50,26 @@ DEFAULT_PORT = 8765
 MAX_BODY_BYTES = 10_000
 MAX_TEXT_CHARS = 500
 MAX_SPEECH_CHARS = 1500
+MAX_AUDIO_SECONDS = 20                          # phone recordings for /api/transcribe
+MAX_AUDIO_BYTES = MAX_AUDIO_SECONDS * 16000 * 2  # 16 kHz, 16-bit mono PCM
+
+# "Add to Home Screen" support, so Titan opens like an app on the phone.
+MANIFEST = {
+    "name": "TITAN", "short_name": "TITAN", "start_url": "/", "scope": "/",
+    "display": "standalone", "orientation": "portrait",
+    "background_color": "#060203", "theme_color": "#060203",
+    "icons": [{"src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}],
+}
+ICON_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">'
+    '<rect width="512" height="512" rx="96" fill="#060203"/>'
+    '<circle cx="256" cy="256" r="170" fill="none" stroke="#ff3b30" stroke-opacity=".35" stroke-width="10"/>'
+    '<circle cx="256" cy="256" r="120" fill="#1a0707" stroke="#ff3b30" stroke-width="10"/>'
+    '<path d="M256 76a180 180 0 0 1 156 90" fill="none" stroke="#ff3b30" stroke-width="16" stroke-linecap="round"/>'
+    '<path d="M256 436a180 180 0 0 1-156-90" fill="none" stroke="#ff3b30" stroke-width="16" stroke-linecap="round"/>'
+    '<text x="256" y="276" text-anchor="middle" font-family="Consolas,monospace" font-size="62" '
+    'letter-spacing="10" fill="#ffe6e2">TITAN</text></svg>'
+)
 MAX_LOGIN_ATTEMPTS = 3
 LOCKOUT_SECONDS = 30
 OLLAMA_TAGS_URL = "http://127.0.0.1:11434/api/tags"   # not "localhost": avoids a 2s IPv6 delay
@@ -322,6 +342,15 @@ def api_stats():
     stats["ollama"] = check_ollama()
     stats["wake_word"] = STATE.wake_word.status()
     stats["wake_word_enabled"] = STATE.wake_word_enabled
+    stats["model"] = core.OLLAMA_MODEL
+    stats["voice"] = core.voice_out.PIPER_VOICE
+    auto = core.autonomy.settings()
+    stats["autonomy"] = {
+        "mode": auto["mode"], "self_check": auto["self_check"], "watchdog": auto["watchdog_on"],
+        "briefing": auto["briefing_time"] if auto["briefing_on"] else "off",
+        "goals": [{"id": g["id"], "time": g["time"], "task": g["task"]} for g in auto["goals"]],
+        "routines": sorted(auto["routines"]), "suggestions": len(auto["suggestions"]),
+    }
     stats["uptime_hours"] = None
     stats["ram_used_gb"] = None
     stats["ram_total_gb"] = None
@@ -376,6 +405,25 @@ def api_tts(body):
     return 200, audio
 
 
+def api_memories():
+    """'What I know about you': the signed-in user's saved memories."""
+    try:
+        return 200, {"memories": core.persona.saved_memories()}
+    except Exception as err:
+        return 200, {"memories": [], "error": str(err)}
+
+
+def api_forget_memory(body):
+    text = str(body.get("text", ""))
+    if not text or len(text) > 400:
+        return 400, {"error": "Which memory?"}
+    try:
+        removed = core.persona.forget_memory_item(text)
+    except Exception as err:
+        return 500, {"error": f"Could not update memories: {err}"}
+    return 200, {"removed": removed}
+
+
 def api_alerts():
     return 200, {"alerts": core.pop_alerts()}
 
@@ -393,6 +441,28 @@ def api_wake_word(body):
         STATE.wake_word_enabled = False
         STATE.wake_word.stop()
     return 200, {"enabled": STATE.wake_word_enabled, "status": STATE.wake_word.status()}
+
+
+_vosk_model = None
+_vosk_lock = threading.Lock()
+
+
+def api_transcribe(pcm):
+    """Turn raw 16 kHz 16-bit mono PCM recorded on the phone into text, offline."""
+    global _vosk_model
+    if core.Model is None or core.KaldiRecognizer is None:
+        return 503, {"error": "Offline speech recognition (Vosk) is not installed."}
+    if not core.VOSK_MODEL_DIR.is_dir():
+        return 503, {"error": "The offline Vosk speech model is missing."}
+    with _vosk_lock:
+        if _vosk_model is None:
+            core.SetLogLevel(-1)
+            _vosk_model = core.Model(str(core.VOSK_MODEL_DIR))
+        recognizer = core.KaldiRecognizer(_vosk_model, 16000)
+        for start in range(0, len(pcm), 8000):
+            recognizer.AcceptWaveform(pcm[start:start + 8000])
+        text = json.loads(recognizer.FinalResult()).get("text", "").strip()
+    return 200, {"text": text, "error": "" if text else "I did not hear anything."}
 
 
 def api_listen():
@@ -496,6 +566,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, INDEX_FILE.read_bytes(), "text/html; charset=utf-8")
             except OSError:
                 return self._send(500, {"error": "index.html is missing from the dashboard folder."})
+        if path == "/manifest.webmanifest":
+            return self._send(200, json.dumps(MANIFEST).encode("utf-8"), "application/manifest+json")
+        if path == "/icon.svg":
+            return self._send(200, ICON_SVG.encode("utf-8"), "image/svg+xml")
         if path == "/api/status":
             return self._send(*api_status())
         if path == "/api/stats":
@@ -506,12 +580,29 @@ class Handler(BaseHTTPRequestHandler):
             if not self._authed():
                 return self._send(401, {"error": "Not signed in."})
             return self._send(*api_alerts())
+        if path == "/api/memories":
+            if not self._authed():
+                return self._send(401, {"error": "Not signed in."})
+            return self._send(*api_memories())
         return self._send(404, {"error": "Not found."})
 
     def do_POST(self):
         if not self._host_ok() or not self._origin_ok():
             return self._send(403, {"error": "Blocked."})
         path = self.path.split("?")[0]
+        if path == "/api/transcribe":           # raw audio, not JSON
+            if not self._authed():
+                return self._send(401, {"error": "Not signed in."})
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                length = -1
+            if length <= 0 or length > MAX_AUDIO_BYTES or length % 2:
+                return self._send(400, {"error": f"Recording must be 16-bit audio under {MAX_AUDIO_SECONDS} seconds."})
+            try:
+                return self._send(*api_transcribe(self.rfile.read(length)))
+            except Exception as err:
+                return self._send(500, {"error": f"Speech recognition failed: {err}"})
         body = self._body()
         if body is None:
             return self._send(400, {"error": "Bad request body."})
@@ -529,6 +620,8 @@ class Handler(BaseHTTPRequestHandler):
                 if isinstance(result, bytes):
                     return self._send(status, result, "audio/wav")
                 return self._send(status, result)
+            if path == "/api/memories/forget":
+                return self._send(*api_forget_memory(body))
             if path == "/api/wake-word":
                 return self._send(*api_wake_word(body))
             if path == "/api/listen":

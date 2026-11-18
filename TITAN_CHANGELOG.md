@@ -201,3 +201,51 @@ diffs, validation results, and whether a failed change was rolled back.
   dashboard JavaScript passes `node --check`; a live server test confirmed
   streamed sentences, non-streamed commands, valid Piper WAV output, and 401
   for unauthenticated TTS requests.
+
+## 2026-11-18 - HUD v2 interface
+
+- Rebuilt `dashboard/index.html` in a workshop-HUD style, referencing Huw
+  Prosser's JARVIS builds: dark blueprint grid, thin HUD frame with corner
+  brackets and a top notch, a radial command wheel around the animated core
+  (TIME, WEATHER, NEWS, NOTES, SYSTEM, VOICE, WAKE, SNAP; hovered segments
+  light up as blue wedges; keyboard accessible), floating glass panels for
+  vitals (segmented meters), link status and the conversation log, and a
+  monospace status line (model, TTS voice, Ollama, wake word, RAM).
+- Added a standby screen: after 90 seconds without interaction the panels fade
+  away and only the core and a large clock remain; any input, reply or alert
+  brings the HUD back.
+- All previous behaviour is kept: login, streamed replies, Piper speech with
+  browser fallback, mic, wake-word toggle, mute, alerts and shutdown.
+- `/api/stats` now also reports the active model and Piper voice.
+- Validation: 35 unittests pass; dashboard JavaScript passes `node --check`;
+  every wheel command routes locally to its skill; desktop, narrow (phone)
+  and standby layouts were checked in headless Edge screenshots.
+
+## 2026-11-18 - Red HUD, phone over Tailscale, and independence
+
+- Red theme for the whole HUD (green kept only for "OK" status lights).
+- Phone: MIC now records in the browser on the device in use and the laptop
+  transcribes it offline with Vosk (`POST /api/transcribe`, raw 16 kHz PCM,
+  token required, 20 s limit). Previously MIC always used the laptop's
+  microphone. iPhone Safari audio is unlocked on the first tap and one audio
+  element is reused. Command bar pinned to the bottom with 16 px input (no
+  iOS zoom) and 48 px buttons; conversation shown before vitals on phones;
+  Add to Home Screen support (`/manifest.webmanifest`, `/icon.svg`); the
+  session is remembered on the device until the server restarts.
+- Added `titan_autonomy.py`: multi-step tasks with one `do(command)` tool that
+  routes through Titan's normal matching; blocked actions (cleanup, lock,
+  coding, self-update, REA) are refused; supervised 6 / autonomous 25 steps;
+  self-check pass; repeat guard; robust parsing of the malformed text tool
+  calls qwen2.5-coder:3b produced in live runs; `X and then Y` of known
+  commands runs directly without the model. Also a watchdog (battery, memory,
+  CPU, disk, Ollama, with cooldowns), a 30-minute heartbeat surfacing at most
+  one item, a daily briefing, standing daily goals, and routine learning that
+  only suggests routines (adopted on explicit request).
+- Dashboard: AUTO // AGENT panel (mode, self-check, watchdog, briefing,
+  goals, routine buttons) and MEM // WHAT I KNOW panel with per-memory delete
+  (`GET /api/memories`, `POST /api/memories/forget`).
+- Validation: 56 unittests pass (21 new); JavaScript passes `node --check`;
+  Vosk transcribed Piper-generated phone-format audio correctly; live runs
+  with the real model: a three-part revision setup finished in 13 s with an
+  accurate summary, a chained request ran instantly, and a request to lock
+  the PC and delete files was refused.

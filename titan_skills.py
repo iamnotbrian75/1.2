@@ -1237,6 +1237,19 @@ def run_battery(text):
 # =============================================================================
 # SECTION 8: ALERTS FOR THE DASHBOARD
 # =============================================================================
+def push_alert(text, kind="notice"):
+    """Queue a message Titan says on its own (watchdog, briefing, goal reports)."""
+    with _alert_cond:
+        _alerts.append({"text": str(text), "kind": kind, "time": datetime.now().isoformat(timespec="seconds")})
+        _alert_cond.notify_all()
+    callback = on_alert
+    if callback is not None:
+        try:
+            callback(str(text))
+        except Exception:
+            pass
+
+
 def pop_alerts():
     """Take every waiting alert (oldest first)."""
     with _lock:

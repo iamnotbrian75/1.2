@@ -31,6 +31,7 @@ SELF_UPDATE_PATHS = {
     "titan_diagnostics.py",
     "titan_rea.py",
     "titan_voice.py",
+    "titan_autonomy.py",
     "dashboard/server.py",
     "dashboard/index.html",
     "README.md",
