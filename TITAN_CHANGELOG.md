@@ -249,3 +249,69 @@ diffs, validation results, and whether a failed change was rolled back.
   with the real model: a three-part revision setup finished in 13 s with an
   accurate summary, a chained request ran instantly, and a request to lock
   the PC and delete files was refused.
+
+## 2026-11-18 - Garage: 3D models, parts and build steps for the E87 project
+
+- Added `titan_garage.py`: car project tracker (owned / considering / check /
+  ordered / fitted / needed, prices, next moves), seeded from the owner's
+  brief for a 2009 BMW 118d E87 LCI; parametric printable custom parts (gauge
+  pod, electronics enclosure, L-bracket) with real holes.
+- Added `dashboard/garage.js` (three.js 0.160.0 vendored for offline use): 3D
+  viewer with orbit/zoom, explode slider, tap-to-select with details,
+  status-coloured edges, step mode that highlights each step's parts with a
+  saved checklist, project tab with totals, STL export for printable parts.
+  GARAGE replaces SNAP on the wheel (screenshots still work by voice).
+- Models: `e87-front-end.json` (bumper, grilles, fixings, carrier, crash
+  absorbers, intercooler + boost pipes, condenser, radiator, fan, slam panel,
+  latch, headlights, bonnet, wings, chassis legs, intake; 7 ordered steps
+  split between owner and mechanic) and `e87-titandrive.json` (head unit,
+  auto-climate frame, CAN-bus interface, aerial adaptor, OBD2).
+- Researched facts with sources saved to the Obsidian note
+  `Projects/E87 build.md` for chat retrieval.
+- Validation: 65 unittests pass (9 new, including checks that every model
+  part uses a known shape, links to a real project item and that every step
+  names real parts); garage.js passes syntax checks; the viewer was rendered
+  in headless Edge for the front end (parts and step mode), the head unit,
+  a custom gauge pod and the phone layout; files load over Tailscale.
+
+## 2026-11-18 - Animagraffs-style garage and real 3D models
+
+- Rewrote `dashboard/garage.js` after owner feedback that the block models
+  weren't the look wanted (reference: animagraffs.com). Added labels with
+  pointer lines in side columns, animated steps (per-step `off` parts slide
+  away and fade; camera eases to the step), auto-play, moving colour flows
+  along paths (`flows` in the model JSON; per-step selection), a cutaway
+  clipping slider, studio lighting (RoomEnvironment + ACES tone mapping) and
+  physically based materials (finned coolers, honeycomb grilles, car paint,
+  glass headlights).
+- Real 3D files: GLB / glTF / OBJ upload (`POST /api/garage/upload`, 150 MB
+  limit, safe names, GLB magic check), served with auth
+  (`/api/garage/asset`), auto-scaled and centred to the guide. MAP PARTS links
+  a model's meshes to guide parts with turn/resize tools; saved per model via
+  `POST /api/garage/override` (only real part ids kept). Vendored GLTFLoader
+  (import path patched), OBJLoader, BufferGeometryUtils, RoomEnvironment.
+- E87 front-end guide: step animations and three schematic flows (coolant,
+  intake air, boost air via intercooler).
+- Validation: 67 unittests pass; JavaScript syntax checks pass; headless
+  Edge renders verified the overview with labels and flows, step 3 with the
+  bumper and impact bar removed, a generated test GLB (metres, five named
+  meshes) loading, auto-scaling and mapping, and MAP PARTS mode.
+
+## 2026-11-18 - Garage restyled as a vintage engineering drawing sheet
+
+- Owner's reference: a sepia patent/blueprint-style cutaway illustration.
+  The garage overlay is now an aged-paper drawing sheet (the rest of Titan
+  keeps the red HUD): cream paper grain and grid, ink outlines on every part
+  (including real models up to 400k triangles), warm illustration lighting
+  and a lighter satin-paint / steel / dark-plastic palette.
+- Numbered, hand-lettered callouts with ink leader lines, placed radially
+  around the model and moved clear of every sheet box and of each other; a
+  ruled PARTS SCHEDULE matching the numbers (status, price); line-only SIDE
+  and FRONT ELEVATION views rendered with orthographic cameras on an ink
+  layer; dimension lines with arrowheads when assembled (EXPLODE near 0);
+  a TITAN WORKS title block with drawing number, NTS scale, date and step.
+- Status colours changed to ink tones readable on paper. Phones show 8 key
+  callouts and hide the schedule, elevations and title block.
+- Validation: 67 unittests pass; JavaScript syntax checks pass; headless
+  Edge renders verified the overview, step 3, a real GLB model and the phone
+  layout, and that callouts no longer overlap sheet boxes or each other.

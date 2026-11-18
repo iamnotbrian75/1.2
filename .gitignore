@@ -9,6 +9,8 @@ titan_notes.txt
 titan_memory.json
 titan_memory.json.tmp
 titan_autonomy.json
+titan_garage.json
+garage_models/
 titan_reminders.json
 titan_settings.json
 

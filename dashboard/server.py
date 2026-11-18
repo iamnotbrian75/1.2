@@ -30,6 +30,7 @@ import secrets
 import sys
 import threading
 import time
+import urllib.parse
 import urllib.request
 import webbrowser
 from datetime import datetime
@@ -44,6 +45,7 @@ HERE = Path(__file__).resolve().parent          # .../dashboard
 ROOT = HERE.parent                              # project folder
 CORE_FILE = ROOT / "T.v1.1.py"                  # the brain
 INDEX_FILE = HERE / "index.html"                # the HUD page
+VENDOR_DIR = HERE / "vendor"                    # three.js, kept locally so Titan works offline
 
 HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
@@ -391,7 +393,8 @@ def api_chat(body):
     if error:
         return error
     reply, keep_running = core.titan_handle(text)
-    return 200, {"reply": reply, "speech": speech_for(text, reply), "keep_running": keep_running}
+    return 200, {"reply": reply, "speech": speech_for(text, reply), "keep_running": keep_running,
+                 "ui": core.garage.take_ui()}
 
 
 def api_tts(body):
@@ -403,6 +406,21 @@ def api_tts(body):
     if audio is None:
         return 503, {"error": "Piper voice unavailable."}
     return 200, audio
+
+
+def api_garage():
+    return 200, {"project": core.garage.project(), "models": core.garage.list_models(),
+                 "assets": core.garage.list_assets()}
+
+
+MAX_OVERRIDE_BYTES = 512 * 1024                 # part mappings for big models can be large
+
+
+def api_garage_model(model_id):
+    spec = core.garage.get_model(model_id)
+    if spec is None:
+        return 404, {"error": "No such model."}
+    return 200, spec
 
 
 def api_memories():
@@ -522,7 +540,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             reply, keep_running = core.titan_handle(text, on_sentence=on_sentence)
             emit({"done": True, "reply": reply, "speech": speech_for(text, reply),
-                  "streamed": bool(streamed), "keep_running": keep_running})
+                  "streamed": bool(streamed), "keep_running": keep_running,
+                  "ui": core.garage.take_ui()})
         except (BrokenPipeError, ConnectionResetError):
             pass                    # the page was closed mid-reply
         except Exception as err:
@@ -570,6 +589,31 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, json.dumps(MANIFEST).encode("utf-8"), "application/manifest+json")
         if path == "/icon.svg":
             return self._send(200, ICON_SVG.encode("utf-8"), "image/svg+xml")
+        if path == "/garage.js":
+            try:
+                return self._send(200, (HERE / "garage.js").read_bytes(), "text/javascript; charset=utf-8")
+            except OSError:
+                return self._send(404, {"error": "Not found."})
+        vendor = re.fullmatch(r"/vendor/([A-Za-z0-9_.-]+\.js)", path)
+        if vendor:
+            try:
+                data = (VENDOR_DIR / vendor.group(1)).read_bytes()
+            except OSError:
+                return self._send(404, {"error": "Not found."})
+            return self._send(200, data, "text/javascript; charset=utf-8")
+        if path in ("/api/garage", "/api/garage/model", "/api/garage/asset"):
+            if not self._authed():
+                return self._send(401, {"error": "Not signed in."})
+            if path == "/api/garage":
+                return self._send(*api_garage())
+            query = urllib.parse.parse_qs(self.path.partition("?")[2])
+            if path == "/api/garage/asset":
+                name = (query.get("name") or [""])[0]
+                file = core.garage.asset_path(name)
+                if file is None:
+                    return self._send(404, {"error": "No such 3D file."})
+                return self._send(200, file.read_bytes(), core.garage.ASSET_TYPES[file.suffix.lower()])
+            return self._send(*api_garage_model((query.get("id") or [""])[0]))
         if path == "/api/status":
             return self._send(*api_status())
         if path == "/api/stats":
@@ -590,6 +634,29 @@ class Handler(BaseHTTPRequestHandler):
         if not self._host_ok() or not self._origin_ok():
             return self._send(403, {"error": "Blocked."})
         path = self.path.split("?")[0]
+        if path in ("/api/garage/upload", "/api/garage/override"):   # large bodies: own limits
+            if not self._authed():
+                return self._send(401, {"error": "Not signed in."})
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                length = -1
+            limit = core.garage.MAX_ASSET_BYTES if path.endswith("upload") else MAX_OVERRIDE_BYTES
+            if length <= 0 or length > limit:
+                return self._send(413, {"error": f"Too large (limit {limit // 1024 ** 2 or 1} MB)."})
+            data = self.rfile.read(length)
+            if path.endswith("upload"):
+                query = urllib.parse.parse_qs(self.path.partition("?")[2])
+                name, error = core.garage.save_asset((query.get("name") or [""])[0], data)
+                return self._send(400, {"error": error}) if error else self._send(200, {"name": name})
+            try:
+                body = json.loads(data)
+            except ValueError:
+                return self._send(400, {"error": "Bad request body."})
+            if not isinstance(body, dict):
+                return self._send(400, {"error": "Bad request body."})
+            error = core.garage.set_override(str(body.get("model", "")), body)
+            return self._send(400, {"error": error}) if error else self._send(200, {"ok": True})
         if path == "/api/transcribe":           # raw audio, not JSON
             if not self._authed():
                 return self._send(401, {"error": "Not signed in."})

@@ -94,6 +94,7 @@ try:
     import titan_rea as rea
     import titan_voice as voice_out
     import titan_autonomy as autonomy
+    import titan_garage as garage
 except ImportError as err:
     print(f"ERROR: {err}")
     print("Put Titan's helper modules, including titan_rea.py, in the same folder as T.v1.1.py.")
@@ -927,6 +928,12 @@ def titan_handle(text, on_sentence=None):
             if not re.match(r"^(?:please )?forget\b", text, re.I):
                 persona.remember(text, memory_reply)
             return memory_reply, True
+
+        # the car project, 3D models and custom part designs
+        garage_reply = garage.handle(text)
+        if garage_reply is not None:
+            persona.remember(text, garage_reply)
+            return garage_reply, True
 
         # modes, briefing, standing goals, routines and multi-step tasks
         autonomy_reply = autonomy.handle(text)

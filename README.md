@@ -188,6 +188,38 @@ expires after two minutes and is cancelled if you send a different command.
 - The dashboard shows all of this in the AUTO // AGENT panel, and saved
   memories in MEM // WHAT I KNOW, where each can be deleted.
 
+## Garage: 3D models, parts lists and build steps (titan_garage.py)
+
+- Tap GARAGE on the wheel, or say `open the garage` / `show me the front end`.
+  Drag to rotate, pinch/scroll to zoom, use EXPLODE to pull parts apart, tap a
+  part for its details. STEPS lights up the parts for each step, with a
+  checklist and who does it (you or the mechanic). PROJECT shows owned /
+  considering / check items, totals in pounds, and the next moves.
+- Built-in models: `dashboard/models/*.json` (E87 front end, E87 TitanDrive
+  head unit). They are schematic (positions and order, not to scale); each
+  part links to a project item so its colour shows its status.
+- Project commands: `car status`, `what needs checking`, `what am I
+  considering`, `what do I own`, `next moves`, `garage budget`,
+  `mark the radiator as checked`, `add wrap film to my garage for £120`,
+  `the head unit costs £185`. Data: `titan_garage.json` (git-ignored).
+- Custom parts you can 3D print: `design a 52mm gauge pod`,
+  `design an enclosure 90 by 60 by 30`, `design a bracket 40mm`. These have
+  real holes; EXPORT STL saves a millimetre STL for your slicer.
+- Car facts come from checked sources in the Obsidian note
+  `Projects/E87 build.md`, not from the language model's memory. Always
+  confirm part numbers and fitment against the VIN.
+- three.js 0.160.0 is stored in `dashboard/vendor/` so the garage works offline.
+- Animagraffs-style presentation: labels with pointer lines (LABELS: KEY /
+  ALL / OFF), animated steps where parts slide off and back on (NEXT, arrow
+  keys, or ▶ PLAY), moving colour flows (coolant, intake air, boost air through
+  the intercooler), a CUTAWAY slice and studio lighting.
+- Real 3D models: tap ＋ 3D FILE (or drag a file onto the view) to add a
+  `.glb`, `.gltf` (embedded) or `.obj` up to 150 MB; it's stored in
+  `garage_models/` (git-ignored). Titan scales and centres it automatically.
+  Then MAP PARTS: pick a part, tap the matching pieces of the model, turn or
+  resize the model if it's sideways, and SAVE MAPPING. Labels, status colours,
+  steps and flows then work on the real model. GLB is best.
+
 ## Phone (Tailscale)
 
 - Open the private `https://<pc>.ts.net/` address, then Share > Add to Home
