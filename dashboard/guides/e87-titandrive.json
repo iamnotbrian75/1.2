@@ -1,0 +1,54 @@
+{
+  "title": "TitanDrive head unit (E87, automatic climate)",
+  "summary": "What an Android head-unit install needs on an automatic-climate E87, and how it all plugs together.",
+  "difficulty": "medium",
+  "time": "2–3 hours",
+  "units": "not to scale",
+  "drawing_no": "E87-TD-01",
+  "tools": ["Trim tools", "Torx T20", "Multimeter", "Cable ties"],
+  "safety": [
+    "Disconnect the battery before unplugging the radio.",
+    "Keep wires clear of the airbag and its yellow connectors."
+  ],
+  "zones": [
+    {"col": 0, "label": "A · IN THE CAR"},
+    {"col": 1, "label": "B · NEW UNIT"},
+    {"col": 2, "label": "C · WIRING"}
+  ],
+  "parts": [
+    {"id": "battery", "name": "Car battery (disconnect first)", "kind": "battery", "at": [0, 0]},
+    {"id": "climate", "name": "Factory climate panel (keep)", "kind": "module", "at": [0, 1]},
+    {"id": "frame", "name": "Fitting frame (auto-climate version)", "kind": "panel", "item": "hu_kit", "at": [0, 2]},
+    {"id": "head_unit", "name": "Android head unit (BMW-specific)", "kind": "module", "item": "head_unit", "at": [1, 0]},
+    {"id": "screen", "name": "Touch screen", "kind": "screen", "item": "head_unit", "at": [1, 1]},
+    {"id": "canbus", "name": "CAN-bus / steering-control lead", "kind": "connector", "item": "hu_kit", "at": [2, 0]},
+    {"id": "aerial", "name": "Aerial adaptor", "kind": "cable", "item": "hu_kit", "at": [2, 1]},
+    {"id": "obd", "name": "OBD2 adaptor (later: live dash)", "kind": "connector", "at": [2, 2]}
+  ],
+  "links": [
+    {"a": "battery", "b": "canbus", "how": "wire", "label": "power via loom"},
+    {"a": "frame", "b": "head_unit", "how": "fits", "label": "holds"},
+    {"a": "climate", "b": "frame", "how": "fits", "label": "keeps"},
+    {"a": "head_unit", "b": "screen", "how": "plug"},
+    {"a": "head_unit", "b": "canbus", "how": "plug", "label": "quadlock"},
+    {"a": "head_unit", "b": "aerial", "how": "plug"},
+    {"a": "screen", "b": "obd", "how": "wire", "label": "Bluetooth"}
+  ],
+  "steps": [
+    {"title": "Confirm the car's setup", "who": "you", "parts": ["climate", "frame"],
+     "text": "Automatic climate is confirmed. Check the radio type and whether you have parking sensors before choosing the kit.",
+     "checks": ["Radio type", "PDC fitted?", "Steering-wheel buttons fitted?"]},
+    {"title": "Check the listing", "who": "you", "parts": ["head_unit", "screen", "canbus"],
+     "text": "Share the exact listing with Titan. Check it supports CarPlay and Android Auto, lets you install your own APKs and launcher, and includes the auto-climate frame and CAN-bus lead.",
+     "checks": ["CarPlay + Android Auto", "Own APKs + custom launcher allowed", "Auto-climate frame included", "CAN-bus lead included", "Within the £200 budget"]},
+    {"title": "Disconnect the battery", "who": "you", "parts": ["battery"],
+     "text": "Disconnect the negative terminal (it's in the boot on the E87) and wait a few minutes before touching the radio wiring.",
+     "warn": "Keep clear of the airbag wiring (yellow connectors)."},
+    {"title": "Fit and test", "who": "you", "parts": ["frame", "head_unit", "canbus", "aerial"],
+     "text": "Remove the old radio, plug in the CAN-bus lead and aerial adaptor, reconnect the battery and test everything before clipping the frame home.",
+     "checks": ["Sound from all speakers", "Steering buttons work", "Climate panel still works", "Radio reception OK"]},
+    {"title": "Later: live OBD2 dashboard", "who": "you", "parts": ["obd", "screen"],
+     "text": "Add an OBD2 adaptor and run your own dashboard APK on the head unit."}
+  ],
+  "disclaimer": "Kits differ for automatic vs manual climate and PDC vs non-PDC cars. Check the exact listing before buying."
+}

@@ -10,7 +10,9 @@ titan_memory.json
 titan_memory.json.tmp
 titan_autonomy.json
 titan_garage.json
+titan_guides.json
 garage_models/
+screen_shots/
 titan_reminders.json
 titan_settings.json
 

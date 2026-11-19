@@ -394,7 +394,7 @@ def api_chat(body):
         return error
     reply, keep_running = core.titan_handle(text)
     return 200, {"reply": reply, "speech": speech_for(text, reply), "keep_running": keep_running,
-                 "ui": core.garage.take_ui()}
+                 "ui": take_ui()}
 
 
 def api_tts(body):
@@ -408,19 +408,36 @@ def api_tts(body):
     return 200, audio
 
 
-def api_garage():
-    return 200, {"project": core.garage.project(), "models": core.garage.list_models(),
-                 "assets": core.garage.list_assets()}
+def take_ui():
+    """One-shot dashboard instruction (e.g. open a blueprint) from the garage or builder."""
+    ui = core.garage.take_ui()
+    ui.update(core.builder.take_ui())
+    return ui
 
 
-MAX_OVERRIDE_BYTES = 512 * 1024                 # part mappings for big models can be large
+def api_builder():
+    return 200, {"guides": core.builder.list_guides(), "project": core.garage.project()}
 
 
-def api_garage_model(model_id):
-    spec = core.garage.get_model(model_id)
-    if spec is None:
-        return 404, {"error": "No such model."}
-    return 200, spec
+def api_builder_guide(guide_id):
+    guide = core.builder.get_guide(guide_id)
+    if guide is None:
+        return 404, {"error": "No such blueprint."}
+    return 200, guide
+
+
+def api_builder_make(body):
+    question = str(body.get("q", "")).strip()
+    if not 4 <= len(question) <= 200:
+        return 400, {"error": "Say what you want to build in a few words."}
+    task = core.builder.match_request(question) or question
+    return 200, {"id": core.builder.start_draft(task)}
+
+
+def api_builder_delete(body):
+    if not core.builder.delete_guide(str(body.get("id", ""))):
+        return 404, {"error": "No such blueprint."}
+    return 200, {"ok": True}
 
 
 def api_memories():
@@ -541,7 +558,7 @@ class Handler(BaseHTTPRequestHandler):
             reply, keep_running = core.titan_handle(text, on_sentence=on_sentence)
             emit({"done": True, "reply": reply, "speech": speech_for(text, reply),
                   "streamed": bool(streamed), "keep_running": keep_running,
-                  "ui": core.garage.take_ui()})
+                  "ui": take_ui()})
         except (BrokenPipeError, ConnectionResetError):
             pass                    # the page was closed mid-reply
         except Exception as err:
@@ -589,9 +606,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, json.dumps(MANIFEST).encode("utf-8"), "application/manifest+json")
         if path == "/icon.svg":
             return self._send(200, ICON_SVG.encode("utf-8"), "image/svg+xml")
-        if path == "/garage.js":
+        if path == "/builder.js":
             try:
-                return self._send(200, (HERE / "garage.js").read_bytes(), "text/javascript; charset=utf-8")
+                return self._send(200, (HERE / "builder.js").read_bytes(), "text/javascript; charset=utf-8")
             except OSError:
                 return self._send(404, {"error": "Not found."})
         vendor = re.fullmatch(r"/vendor/([A-Za-z0-9_.-]+\.js)", path)
@@ -601,19 +618,13 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 return self._send(404, {"error": "Not found."})
             return self._send(200, data, "text/javascript; charset=utf-8")
-        if path in ("/api/garage", "/api/garage/model", "/api/garage/asset"):
+        if path in ("/api/builder", "/api/builder/guide"):
             if not self._authed():
                 return self._send(401, {"error": "Not signed in."})
-            if path == "/api/garage":
-                return self._send(*api_garage())
+            if path == "/api/builder":
+                return self._send(*api_builder())
             query = urllib.parse.parse_qs(self.path.partition("?")[2])
-            if path == "/api/garage/asset":
-                name = (query.get("name") or [""])[0]
-                file = core.garage.asset_path(name)
-                if file is None:
-                    return self._send(404, {"error": "No such 3D file."})
-                return self._send(200, file.read_bytes(), core.garage.ASSET_TYPES[file.suffix.lower()])
-            return self._send(*api_garage_model((query.get("id") or [""])[0]))
+            return self._send(*api_builder_guide((query.get("id") or [""])[0]))
         if path == "/api/status":
             return self._send(*api_status())
         if path == "/api/stats":
@@ -634,29 +645,6 @@ class Handler(BaseHTTPRequestHandler):
         if not self._host_ok() or not self._origin_ok():
             return self._send(403, {"error": "Blocked."})
         path = self.path.split("?")[0]
-        if path in ("/api/garage/upload", "/api/garage/override"):   # large bodies: own limits
-            if not self._authed():
-                return self._send(401, {"error": "Not signed in."})
-            try:
-                length = int(self.headers.get("Content-Length", "0"))
-            except ValueError:
-                length = -1
-            limit = core.garage.MAX_ASSET_BYTES if path.endswith("upload") else MAX_OVERRIDE_BYTES
-            if length <= 0 or length > limit:
-                return self._send(413, {"error": f"Too large (limit {limit // 1024 ** 2 or 1} MB)."})
-            data = self.rfile.read(length)
-            if path.endswith("upload"):
-                query = urllib.parse.parse_qs(self.path.partition("?")[2])
-                name, error = core.garage.save_asset((query.get("name") or [""])[0], data)
-                return self._send(400, {"error": error}) if error else self._send(200, {"name": name})
-            try:
-                body = json.loads(data)
-            except ValueError:
-                return self._send(400, {"error": "Bad request body."})
-            if not isinstance(body, dict):
-                return self._send(400, {"error": "Bad request body."})
-            error = core.garage.set_override(str(body.get("model", "")), body)
-            return self._send(400, {"error": error}) if error else self._send(200, {"ok": True})
         if path == "/api/transcribe":           # raw audio, not JSON
             if not self._authed():
                 return self._send(401, {"error": "Not signed in."})
@@ -687,6 +675,10 @@ class Handler(BaseHTTPRequestHandler):
                 if isinstance(result, bytes):
                     return self._send(status, result, "audio/wav")
                 return self._send(status, result)
+            if path == "/api/builder/make":
+                return self._send(*api_builder_make(body))
+            if path == "/api/builder/delete":
+                return self._send(*api_builder_delete(body))
             if path == "/api/memories/forget":
                 return self._send(*api_forget_memory(body))
             if path == "/api/wake-word":

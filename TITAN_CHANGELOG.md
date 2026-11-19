@@ -5,6 +5,41 @@ project work predates this detailed change log and is not reconstructed here.
 Future self-updates append the request, approval level, affected files, exact
 diffs, validation results, and whether a failed change was rolled back.
 
+## 2026-11-19 - Builder (Clicky-style blueprints) replaces the 3D garage; screen pointing
+
+- Request: replace the 3D garage with Clicky-style guidance. Asking how to make
+  something should draw the components and walk through the build, styled as
+  aviation blueprints. Also point at things on the laptop screen.
+- New `titan_builder.py`: "how do I…" requests are drafted in the background
+  by the local model, using Ollama structured JSON output and a worked example.
+  The result is cleaned and checked: unknown parts and links are dropped,
+  over-long part lists trimmed, prices sanity-checked. Steps touching
+  dangerous systems are flagged. Checked guides are in `dashboard/guides/`,
+  and printable garage parts open as blueprints.
+- New `dashboard/builder.js`: SVG blueprint renderer with one line symbol per
+  kind of part. Parts are drawn on one by one; the sheet has a list of
+  material, general notes and a title block. Pan, zoom and pinch work.
+  A Clicky-style pointer flies to each step's parts while the step is
+  narrated, with a callout that avoids covering them. Spoken
+  next/back/repeat/stop. Phone layout. STL export loads three.js on demand.
+- New `titan_screen.py`: one in-memory screenshot, then the local `qwen3-vl:2b`
+  vision model, then a click-through pointer overlay and a spoken answer.
+  It waits for you to leave Titan's own window first.
+- Removed: the three.js 3D garage (`dashboard/garage.js`, `dashboard/models/`,
+  GLTF/OBJ loaders, OrbitControls, RoomEnvironment, BufferGeometryUtils), 3D
+  file upload and part mapping. `titan_garage.py` keeps the car project
+  tracker and the printable-part generators.
+- Server: `/builder.js`, `/api/builder`, `/api/builder/guide`,
+  `/api/builder/make`, `/api/builder/delete`. The garage upload/override
+  endpoints were removed.
+- Files: `titan_builder.py`, `titan_screen.py`, `titan_garage.py`, `T.v1.1.py`,
+  `titan_coder.py`, `dashboard/builder.js`, `dashboard/index.html`,
+  `dashboard/server.py`, `dashboard/guides/*.json`, tests, `README.md`,
+  `requirements.txt` (pillow), `.gitignore`, `sync_to_github.ps1`.
+- Validation: full unittest suite. Blueprint, step, AI-draft, drafting and
+  phone layouts were checked in headless Edge screenshots, and a real draft
+  was made with the local model (about 55 s with llama3.2:3b).
+
 ## 2026-10-15 - Laptop and Titan diagnosis; guarded self-updates
 
 - Added read-only laptop diagnosis for CPU, memory, system drive space, battery

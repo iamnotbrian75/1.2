@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-TITAN GARAGE - build projects, 3D models, parts lists and build steps
-=====================================================================
+TITAN GARAGE - the car project tracker and printable parts
+==========================================================
   * Project tracker: what you OWN, are CONSIDERING, what still NEEDS CHECKING,
     what's ORDERED or FITTED, prices in pounds, and the next moves in order.
-  * 3D models: JSON specs drawn by the dashboard's GARAGE view (three.js).
-    Built-in models live in dashboard/models/*.json; each part can link to a
-    project item so its colour shows its status.
+  * Blueprints: the car's build guides live in dashboard/guides/*.json and are
+    drawn by the BUILDER (titan_builder.py + dashboard/builder.js); each part
+    can link to a project item so its status shows on the drawing.
   * Custom parts: parametric generators (gauge pod, electronics enclosure,
-    L-bracket) whose shapes have real holes, so the dashboard can export a
+    L-bracket) whose shapes have real holes, so the builder can export a
     printable STL in millimetres.
 
 Facts about the car (fitment, part numbers, procedures) are NOT invented by
@@ -27,11 +27,6 @@ import titan_skills as skills
 
 BASE_DIR = Path(__file__).resolve().parent
 STORE_FILE = BASE_DIR / "titan_garage.json"
-MODELS_DIR = BASE_DIR / "dashboard" / "models"
-ASSETS_DIR = BASE_DIR / "garage_models"          # real 3D files you add (GLB / glTF / OBJ); git-ignored
-ASSET_TYPES = {".glb": "model/gltf-binary", ".gltf": "model/gltf+json", ".obj": "text/plain; charset=utf-8"}
-MAX_ASSET_BYTES = 150 * 1024 * 1024
-_ASSET_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9 _.()-]{0,80}\.(?:glb|gltf|obj)")
 STATUSES = ("owned", "considering", "check", "ordered", "fitted", "needed")
 STATUS_WORDS = {
     "own": "owned", "owned": "owned", "have": "owned", "bought": "owned", "got": "owned",
@@ -44,7 +39,7 @@ STATUS_WORDS = {
 
 _lock = threading.RLock()
 _store = None
-_ui = {}                         # one-shot instruction for the dashboard, e.g. open the 3D view
+_ui = {}                         # one-shot instruction for the dashboard, e.g. open a blueprint
 
 
 # =============================================================================
@@ -62,7 +57,7 @@ def _load():
             _store.setdefault("active", "e87")
             _store.setdefault("projects", {})
             _store.setdefault("custom_models", {})
-            _store.setdefault("overrides", {})       # model id -> {asset, mesh_map, rotate, scale}
+            _store.pop("overrides", None)            # old 3D-file mappings (3D garage removed)
             if "e87" not in _store["projects"]:
                 _store["projects"]["e87"] = starter_e87_project()
         return _store
@@ -87,7 +82,7 @@ def project(project_id=None):
 
 
 def take_ui():
-    """The dashboard asks this after each reply: should it open the 3D view?"""
+    """The dashboard asks this after each reply: should it open a blueprint?"""
     with _lock:
         out = dict(_ui)
         _ui.clear()
@@ -195,114 +190,10 @@ def starter_e87_project():
 # =============================================================================
 # SECTION 3: MODELS (built-in JSON + parametric custom parts)
 # =============================================================================
-def list_models():
-    out = []
-    for path in sorted(MODELS_DIR.glob("*.json")):
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            out.append({"id": path.stem, "title": data.get("title", path.stem), "kind": data.get("kind", "assembly")})
-        except (OSError, ValueError):
-            continue
+def custom_models():
+    """Printable parts made by design(): id -> spec."""
     with _lock:
-        for model_id, data in _load()["custom_models"].items():
-            out.append({"id": model_id, "title": data.get("title", model_id), "kind": "custom"})
-    return out
-
-
-def get_model(model_id):
-    """A model spec, with any real 3D file and part mapping you've attached merged in."""
-    if not re.fullmatch(r"[a-z0-9-]{1,40}", model_id or ""):
-        return None
-    with _lock:
-        custom = _load()["custom_models"].get(model_id)
-        override = json.loads(json.dumps(_load()["overrides"].get(model_id, {})))
-    spec = custom
-    if spec is None:
-        try:
-            spec = json.loads((MODELS_DIR / f"{model_id}.json").read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return None
-    spec = json.loads(json.dumps(spec))
-    spec["id"] = model_id
-    if override.get("asset") and asset_path(override["asset"]) is not None:
-        spec["asset"] = override["asset"]
-        spec["mesh_map"] = override.get("mesh_map", {})
-        spec["asset_rotate"] = override.get("rotate", [0, 0, 0])
-        spec["asset_scale"] = override.get("scale", 1.0)
-    return spec
-
-
-# ---- real 3D files (GLB / glTF / OBJ) ----
-def safe_asset_name(name):
-    name = Path(str(name or "")).name.strip()
-    return name if _ASSET_NAME.fullmatch(name) else None
-
-
-def asset_path(name):
-    name = safe_asset_name(name)
-    if not name:
-        return None
-    path = ASSETS_DIR / name
-    return path if path.is_file() else None
-
-
-def list_assets():
-    if not ASSETS_DIR.is_dir():
-        return []
-    return [{"name": p.name, "mb": round(p.stat().st_size / 1024 ** 2, 1)}
-            for p in sorted(ASSETS_DIR.iterdir()) if p.is_file() and safe_asset_name(p.name)]
-
-
-def save_asset(name, data):
-    """Store an uploaded model file. Returns (name, None) or (None, error)."""
-    name = safe_asset_name(name)
-    if not name:
-        return None, "Use a .glb, .gltf or .obj file with a simple name (letters, numbers, spaces, - _ . ( ))."
-    if not data or len(data) > MAX_ASSET_BYTES:
-        return None, f"The file must be under {MAX_ASSET_BYTES // 1024 ** 2} MB."
-    if name.endswith(".glb") and data[:4] != b"glTF":
-        return None, "That isn't a valid .glb file."
-    ASSETS_DIR.mkdir(exist_ok=True)
-    tmp = ASSETS_DIR / (name + ".part")
-    tmp.write_bytes(data)
-    tmp.replace(ASSETS_DIR / name)
-    return name, None
-
-
-def set_override(model_id, data):
-    """Attach a 3D file to a model and/or save its part mapping and alignment."""
-    if get_model(model_id) is None:
-        return "No such model."
-    clean = {}
-    if "asset" in data:
-        if data["asset"] in (None, ""):
-            clean["asset"] = None
-        elif asset_path(data["asset"]) is None:
-            return "That 3D file isn't in the garage folder."
-        else:
-            clean["asset"] = safe_asset_name(data["asset"])
-    if "mesh_map" in data:
-        mesh_map = data["mesh_map"]
-        part_ids = {p["id"] for p in get_model(model_id)["parts"]}
-        if not isinstance(mesh_map, dict) or len(mesh_map) > 5000:
-            return "Bad part mapping."
-        clean["mesh_map"] = {str(k)[:200]: v for k, v in mesh_map.items() if v in part_ids}
-    if "rotate" in data:
-        rot = data["rotate"]
-        if not (isinstance(rot, list) and len(rot) == 3 and all(isinstance(r, (int, float)) and abs(r) <= 360 for r in rot)):
-            return "Bad rotation."
-        clean["rotate"] = [float(r) for r in rot]
-    if "scale" in data:
-        if not isinstance(data["scale"], (int, float)) or not 0.0001 <= data["scale"] <= 100000:
-            return "Bad scale."
-        clean["scale"] = float(data["scale"])
-    with _lock:
-        override = _load()["overrides"].setdefault(model_id, {})
-        override.update(clean)
-        if override.get("asset") is None:
-            _load()["overrides"].pop(model_id, None)
-        _save()
-    return None
+        return json.loads(json.dumps(_load()["custom_models"]))
 
 
 def _plate(w, h, t, holes=(), radius=2.0):
@@ -467,18 +358,22 @@ def handle(text):
     t = text.strip()
     low = re.sub(r"\s+", " ", t.casefold()).strip(" .!?")
 
-    if re.search(r"\b(?:open|show)(?: me)? (?:the |my )?(?:garage|3d (?:view|model)s?|workshop)\b|^garage$", low):
-        _ui.update(open="garage", model="e87-front-end")
-        return "Opening the garage. Drag to turn the model, use the slider to explode it, and tap a part to see what it is."
-    if re.search(r"\b(?:show|open)(?: me)? (?:the )?front[- ]end(?: model)?\b", low):
-        _ui.update(open="garage", model="e87-front-end")
-        return "Here's the E87 front end, exploded. Coloured parts show what you own, what's being considered and what still needs checking."
+    if re.search(r"\b(?:open|show)(?: me)? (?:the |my )?(?:garage|workshop)\b|^garage$", low):
+        _ui.update(open="builder", guide="e87-front-end")
+        return "Opening the E87 front-end blueprint. Press play and I'll point at each part as we go."
+    if re.search(r"\b(?:show|open)(?: me)? (?:the )?front[- ]end(?: blueprint| model)?\b", low):
+        _ui.update(open="builder", guide="e87-front-end")
+        return "Here's the E87 front-end blueprint. Part colours show what you own, what's being considered and what still needs checking."
+    if re.search(r"\b(?:show|open)(?: me)? (?:the )?(?:titandrive|head ?unit)(?: blueprint| install)?\b", low):
+        _ui.update(open="builder", guide="e87-titandrive")
+        return "Here's the TitanDrive head-unit install blueprint."
 
-    if re.search(r"\b(?:design|make|model|create)\b.*\b(?:gauge|pod|enclosure|box|case|bracket)\b", low):
+    if re.search(r"\b(?:design|model|create)\b.*\b(?:gauge|pod|enclosure|box|case|bracket)\b"
+                 r"|^make (?:me )?(?:a |an )?(?:\d+ ?mm )?(?:gauge pod|enclosure|bracket)\b", low):
         model_id, spec = design(low)
         if model_id:
-            _ui.update(open="garage", model=model_id)
-            return f"Designed: {spec['title']}. {spec['subtitle']}. It's in the garage, where you can export it as an STL to print."
+            _ui.update(open="builder", guide=model_id)
+            return f"Designed: {spec['title']}. {spec['subtitle']}. It's on the blueprint now, and you can export it as an STL to print."
 
     if re.search(r"\b(?:next (?:three )?moves|what(?:'s| is) next on the car|car plan|build plan)\b", low):
         return next_moves()

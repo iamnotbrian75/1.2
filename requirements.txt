@@ -3,3 +3,4 @@ pyttsx3
 vosk
 sounddevice
 piper-tts
+pillow

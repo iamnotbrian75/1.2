@@ -188,37 +188,54 @@ expires after two minutes and is cancelled if you send a different command.
 - The dashboard shows all of this in the AUTO // AGENT panel, and saved
   memories in MEM // WHAT I KNOW, where each can be deleted.
 
-## Garage: 3D models, parts lists and build steps (titan_garage.py)
+## Builder: blueprints you can follow (titan_builder.py)
 
-- Tap GARAGE on the wheel, or say `open the garage` / `show me the front end`.
-  Drag to rotate, pinch/scroll to zoom, use EXPLODE to pull parts apart, tap a
-  part for its details. STEPS lights up the parts for each step, with a
-  checklist and who does it (you or the mechanic). PROJECT shows owned /
-  considering / check items, totals in pounds, and the next moves.
-- Built-in models: `dashboard/models/*.json` (E87 front end, E87 TitanDrive
-  head unit). They are schematic (positions and order, not to scale); each
-  part links to a project item so its colour shows its status.
-- Project commands: `car status`, `what needs checking`, `what am I
-  considering`, `what do I own`, `next moves`, `garage budget`,
-  `mark the radiator as checked`, `add wrap film to my garage for £120`,
-  `the head unit costs £185`. Data: `titan_garage.json` (git-ignored).
-- Custom parts you can 3D print: `design a 52mm gauge pod`,
-  `design an enclosure 90 by 60 by 30`, `design a bracket 40mm`. These have
-  real holes; EXPORT STL saves a millimetre STL for your slicer.
-- Car facts come from checked sources in the Obsidian note
-  `Projects/E87 build.md`, not from the language model's memory. Always
-  confirm part numbers and fitment against the VIN.
-- three.js 0.160.0 is stored in `dashboard/vendor/` so the garage works offline.
-- Animagraffs-style presentation: labels with pointer lines (LABELS: KEY /
-  ALL / OFF), animated steps where parts slide off and back on (NEXT, arrow
-  keys, or ▶ PLAY), moving colour flows (coolant, intake air, boost air through
-  the intercooler), a CUTAWAY slice and studio lighting.
-- Real 3D models: tap ＋ 3D FILE (or drag a file onto the view) to add a
-  `.glb`, `.gltf` (embedded) or `.obj` up to 150 MB; it's stored in
-  `garage_models/` (git-ignored). Titan scales and centres it automatically.
-  Then MAP PARTS: pick a part, tap the matching pieces of the model, turn or
-  resize the model if it's sideways, and SAVE MAPPING. Labels, status colours,
-  steps and flows then work on the real model. GLB is best.
+- Ask how to make something: `how do I wire a boost gauge?`, `show me how to
+  fit a head unit`, `walk me through replacing the radiator`, `draw me a
+  blueprint for a raspberry pi dashboard`. You can also type it into the
+  builder's own "how do I…" box, or tap BUILD on the wheel.
+- Titan drafts a guide with the local model: parts (UK names, rough £),
+  tools, how the parts connect, and numbered steps. That takes about a minute
+  on this laptop. Drafting uses `llama3.2:3b`, or the chat model if that isn't
+  installed (`TITAN_BUILDER_MODEL` overrides it).
+- The drafted guide is drawn as a blueprint: white line symbols on blueprint
+  paper, numbered balloons, a LIST OF MATERIAL, general notes and a title
+  block. ▶ PLAY (or say `play`) walks you through it. A red pointer flies to
+  each step's parts, the parts light up while everything else fades, and
+  Titan reads the step aloud. Say or press `next`, `back`, `repeat`, `stop`;
+  tap any part for its details.
+- Safety: AI drafts are labelled AI DRAFT. Any step that touches the fuel
+  system, brakes, airbags, mains power, air-con gas, steering/suspension,
+  welding or working under a lifted car is flagged ⛔ CHECK, with a warning
+  not to follow it without a workshop guide or your mechanic. Small models can
+  be confidently wrong.
+- Checked guides (`dashboard/guides/*.json`): the E87 front end and the
+  TitanDrive head-unit install. Their parts link to the car project, so
+  OWNED / CHECK / NEEDED show on the drawing. `open the garage` and `show me
+  the front end` open them.
+- Car project commands: `car status`, `what needs checking`, `what am I
+  considering`, `what do I own`, `next moves`, `garage budget`, `mark the
+  radiator as checked`, `add wrap film to my garage for £120`, `the head unit
+  costs £185`. The CAR tab shows the same list. Data: `titan_garage.json`.
+- Printable parts: `design a 52mm gauge pod`, `design an enclosure 90 by 60
+  by 30`, `design a bracket 40mm`. These open as blueprints, and EXPORT STL
+  saves a millimetre STL for your slicer (three.js is loaded only for that).
+- Drafts are kept in `titan_guides.json` (git-ignored, last 25).
+
+## Screen pointing (titan_screen.py)
+
+- Ask about whatever is on the laptop screen: `where's the export button?`,
+  `point to the wifi settings`, `where do I click to add a layer?`, `show me
+  where the layers panel is`.
+- If Titan's own page is in front, switch to the app you mean. Titan waits up
+  to 10 seconds for that, then takes one screenshot of the main screen.
+- A small offline vision model (`qwen3-vl:2b-instruct`, install with `ollama pull
+  qwen3-vl:2b-instruct`; `TITAN_VISION_MODEL` overrides it) finds the thing. A red
+  triangle then flies from your mouse to it with a label, on a click-through
+  overlay, and Titan says the answer.
+- The screenshot is kept in memory only and goes to the local Ollama server,
+  never to disk or the internet. On 8 GB this takes roughly 20–60 seconds,
+  and the vision model unloads two minutes after use.
 
 ## Phone (Tailscale)
 

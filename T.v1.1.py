@@ -95,6 +95,8 @@ try:
     import titan_voice as voice_out
     import titan_autonomy as autonomy
     import titan_garage as garage
+    import titan_builder as builder
+    import titan_screen as screen
 except ImportError as err:
     print(f"ERROR: {err}")
     print("Put Titan's helper modules, including titan_rea.py, in the same folder as T.v1.1.py.")
@@ -934,6 +936,18 @@ def titan_handle(text, on_sentence=None):
         if garage_reply is not None:
             persona.remember(text, garage_reply)
             return garage_reply, True
+
+        # "where's the export button?" -> Titan looks at the screen and points at it
+        screen_reply = screen.handle(text)
+        if screen_reply is not None:
+            persona.remember(text, screen_reply)
+            return screen_reply, True
+
+        # "how do I wire a boost gauge?" -> a blueprint Titan walks you through
+        builder_reply = builder.handle(text)
+        if builder_reply is not None:
+            persona.remember(text, builder_reply)
+            return builder_reply, True
 
         # modes, briefing, standing goals, routines and multi-step tasks
         autonomy_reply = autonomy.handle(text)

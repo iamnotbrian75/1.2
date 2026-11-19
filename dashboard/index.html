@@ -189,141 +189,149 @@ body.standby #stateLabel,body.standby form.cmd{display:none}
 body.standby .notch{opacity:0}
 .seg,.wheel .ring-bg,.top>*{transition:opacity .8s}
 
-/* ---- garage: 3D models, parts and build steps ---- */
-.garage{position:fixed; inset:0; z-index:8; display:flex; flex-direction:column; background:var(--bg);
-  padding:calc(14px + env(safe-area-inset-top)) 16px calc(14px + env(safe-area-inset-bottom))}
-.garage[hidden]{display:none}
-.g-head{display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; padding-bottom:10px; border-bottom:1px solid var(--edge)}
-.g-head > b{font-size:12px; letter-spacing:.4em; color:var(--accent)}
-.g-head select{background:var(--glass); color:var(--ice); border:1px solid var(--edge); border-radius:3px; padding:8px; font:inherit; font-size:12px; max-width:min(70vw,360px)}
-.g-head label{display:flex; align-items:center; gap:8px; font-size:9px; letter-spacing:.3em; color:var(--dim)}
-.g-head input[type=range]{accent-color:var(--accent); width:120px}
-.g-head .spacer{flex:1}
-#gSub{width:100%; font-size:10px; color:var(--dim); letter-spacing:.06em}
-.g-body{flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1fr) 380px; gap:14px; padding-top:12px}
-.g-view{position:relative; min-height:0; border:1px solid var(--edge); border-radius:3px;
-  background:radial-gradient(ellipse at 50% 60%, rgba(190,30,30,.12), transparent 70%)}
-#gCanvas{position:absolute; inset:0; width:100%; height:100%; touch-action:none; cursor:grab}
-.g-legend{position:absolute; left:10px; top:10px; display:flex; flex-wrap:wrap; gap:8px; font-size:9px; letter-spacing:.2em; pointer-events:none}
-.g-legend span{display:flex; align-items:center; gap:5px}
-.g-legend i{width:8px; height:8px; border-radius:50%}
-#gDisclaimer{position:absolute; left:10px; bottom:8px; right:10px; font-size:9px; color:var(--faint); letter-spacing:.06em; pointer-events:none}
-#gNote{position:absolute; right:10px; top:10px; width:min(320px,70%); background:var(--glass); border:1px solid var(--edge2);
-  border-radius:3px; padding:10px 12px; font-size:11.5px; line-height:1.5; backdrop-filter:blur(6px)}
-#gNote b{display:block; color:var(--ice); margin-bottom:6px}
-#gNote p{margin:6px 0 0; color:#e8c4bf}
-.g-badge{display:inline-block; margin-right:6px; padding:1px 6px; border:1px solid var(--edge2); border-radius:2px; font-size:8.5px; letter-spacing:.2em; color:var(--dim)}
-.g-price{color:var(--ice); font-size:11px; margin-right:6px}
-.g-side{display:flex; flex-direction:column; min-height:0}
-.g-tabs{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:10px}
-.g-pane{flex:1; min-height:0; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--faint) transparent}
-.g-row{display:grid; grid-template-columns:10px 1fr auto; gap:10px; align-items:center; width:100%; text-align:left;
-  background:none; border:0; border-bottom:1px solid rgba(255,70,60,.08); padding:9px 4px; color:var(--ice); font:inherit; font-size:12px; cursor:pointer}
-.g-row:hover,.g-row.on{background:rgba(163,22,26,.35)}
-.g-dot{width:8px; height:8px; border-radius:50%}
-.g-meta{font-size:8.5px; letter-spacing:.18em}
-.g-nav{display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px}
-.g-count{flex:1; text-align:center; font-size:9px; letter-spacing:.3em; color:var(--dim)}
-.g-step{border:1px solid var(--edge); border-radius:3px; padding:9px 10px; margin-bottom:8px; font-size:12px}
-.g-step.on{border-color:var(--edge2); background:rgba(163,22,26,.22)}
-.g-step-h{display:flex; justify-content:space-between; gap:8px; cursor:pointer}
-.g-step p,.g-move p{margin:6px 0; color:#e8c4bf; line-height:1.5; font-size:11.5px}
-.g-check{display:flex; gap:8px; align-items:flex-start; font-size:11.5px; color:var(--ice); margin:5px 0; cursor:pointer}
-.g-check input{accent-color:var(--accent); margin-top:2px}
-.g-title{font-size:12px; color:var(--ice); margin-bottom:8px}
-.g-totals{display:flex; gap:14px; font-size:10px; letter-spacing:.2em; color:var(--accent); margin:6px 0 4px}
-.g-move{border-left:2px solid var(--accent); padding:4px 0 4px 10px; margin:6px 0; font-size:12px}
-.g-item{display:flex; justify-content:space-between; gap:10px; font-size:11.5px; padding:4px 0; border-bottom:1px solid rgba(255,70,60,.06)}
-body.garage-open{overflow:hidden}
-#gAsset{max-width:min(60vw,240px)}
-#gLines{position:absolute; inset:0; width:100%; height:100%; pointer-events:none}
-#gLabels{position:absolute; inset:0; pointer-events:none}
-.g-label{position:absolute; width:186px; pointer-events:auto; text-align:left; background:rgba(10,4,5,.82); color:var(--ice);
-  border:0; border-left:2px solid; padding:3px 8px; font:inherit; font-size:10.5px; letter-spacing:.04em; cursor:pointer;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; backdrop-filter:blur(4px)}
-.g-label.right{text-align:right; border-left:0; border-right:2px solid}
-.g-label.on,.g-label:hover{background:rgba(163,22,26,.75)}
-.g-flow-legend{top:auto; bottom:26px}
-.g-legend[hidden]{display:none}
-#gAssetNote{position:absolute; left:10px; top:30px; font-size:10px; color:var(--dim); letter-spacing:.06em; pointer-events:none}
-.g-view.drop{outline:2px dashed var(--accent); outline-offset:-6px}
-#gMap{display:none}
-.garage.mapping #gMap{display:block}
-.garage.mapping .g-tabs,.garage.mapping #gParts,.garage.mapping #gSteps,.garage.mapping #gProject{display:none}
-.garage.mapping #gMapBtn{background:var(--wedge); color:#fff}
-.garage.mapping #gLabels,.garage.mapping #gLines{display:none}
-@media (max-width:900px){ .g-label{width:132px; font-size:9.5px} }
-
-/* ---- garage as a vintage engineering drawing sheet ---- */
-.garage{
-  --bg:#ece0c4; --accent:#8a3b1c; --ice:#2b1d12; --dim:#6b5440; --faint:#9c8566;
-  --edge:rgba(70,45,22,.30); --edge2:rgba(70,45,22,.6); --glass:rgba(244,234,210,.92); --wedge:#8a3b1c;
-  --ink:#3a2716; --hand:"Segoe Print","Bradley Hand","Noteworthy","Comic Sans MS",cursive;
-  color:var(--ice);
-  background-color:#ece0c4;
-  background-image:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .35  0 0 0 0 .24  0 0 0 0 .12  0 0 0 .09 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
-    radial-gradient(ellipse at 50% 45%, rgba(255,250,235,.55), rgba(150,110,60,.18) 85%),
-    linear-gradient(rgba(90,60,30,.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(90,60,30,.07) 1px, transparent 1px);
-  background-size:220px 220px, auto, 24px 24px, 24px 24px;
+/* ---- builder: blueprints you can follow (logic in /builder.js) ---- */
+.builder{position:fixed; inset:0; z-index:8; display:flex; flex-direction:column; padding:14px 18px calc(14px + env(safe-area-inset-bottom));
+  --paper:#0e3f7e; --line:#eaf4ff; --dimline:rgba(234,244,255,.58); --faintline:rgba(234,244,255,.22);
+  --bpfont:"Bahnschrift","DIN Condensed","Avenir Next Condensed","Arial Narrow","Roboto Condensed",sans-serif;
+  color:var(--line); font-family:var(--bpfont);
+  background:radial-gradient(ellipse at 45% 35%, #15528f, #0b3369 70%, #082a57)}
+.builder[hidden]{display:none}
+body.builder-open{overflow:hidden}
+.builder .pill{background:rgba(7,36,78,.75); color:var(--line); border-color:rgba(234,244,255,.45); font-family:var(--bpfont); letter-spacing:.18em}
+.builder .pill:hover{border-color:#fff; color:#fff}
+.builder .pill.active{background:var(--line); color:#0b3369; border-color:var(--line); box-shadow:none}
+.builder .pill.rec{background:#ff3b30; color:#fff; border-color:#ff3b30; animation:rec-pulse 1s ease-in-out infinite}
+.bp-head{display:flex; flex-wrap:wrap; align-items:center; gap:10px 12px; padding-bottom:10px; border-bottom:1.5px solid var(--dimline)}
+.bp-brand{font-size:16px; letter-spacing:.42em; font-weight:600}
+.bp-head select{background:rgba(7,36,78,.85); color:var(--line); border:1px solid var(--dimline); border-radius:2px; padding:8px; font:inherit; font-size:13px; max-width:min(70vw,380px)}
+.bp-sub{font-size:11px; letter-spacing:.25em; color:var(--dimline)}
+.bp-head .spacer{flex:1}
+.bp-ask{display:flex; gap:6px}
+.bp-ask input{width:min(300px,50vw); background:rgba(7,36,78,.85); color:var(--line); border:1px solid var(--dimline); border-radius:2px; padding:8px 10px; font:inherit; font-size:13px}
+.bp-ask input::placeholder{color:var(--dimline)}
+.bp-body{flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:14px; padding-top:12px}
+.bp-view{position:relative; min-height:0; overflow:hidden; border:1.5px solid var(--dimline); touch-action:none; cursor:grab; background:var(--paper)}
+.bp-view:active{cursor:grabbing}
+#bpSvg{position:absolute; inset:0; width:100%; height:100%; display:block; user-select:none; -webkit-user-select:none}
+#bpSvg text{font-family:var(--bpfont); fill:var(--line)}
+#bpSvg .ink{fill:none; stroke:var(--line); stroke-width:1.4; stroke-linejoin:round; stroke-linecap:round}
+#bpSvg .ink.thin{stroke-width:.8; opacity:.85}
+#bpSvg .ink.thick{stroke-width:2.6}
+#bpSvg .ink.dash{stroke-dasharray:4 3}
+#bpSvg .ink.faint{opacity:.45}
+#bpSvg .paper-grid{fill:url(#bpGrid)}
+#bpSvg .h1{font-size:28px; letter-spacing:5px; font-weight:600}
+#bpSvg .sub{font-size:13px; letter-spacing:1.5px; fill:var(--dimline)}
+#bpSvg .tick{font-size:10px; letter-spacing:1px; fill:var(--dimline)}
+#bpSvg .zone{fill:none; stroke:var(--faintline); stroke-width:1.2; stroke-dasharray:9 6}
+#bpSvg .zone-lab{font-size:12.5px; letter-spacing:2.5px; fill:var(--dimline)}
+#bpSvg .plab{font-size:10.5px; letter-spacing:1.2px}
+#bpSvg .qty{font-size:11px; fill:var(--dimline)}
+#bpSvg .balloon{fill:var(--paper); stroke:var(--line); stroke-width:1.3}
+#bpSvg .bnum{font-size:11px; font-weight:600}
+#bpSvg .sdot{stroke:var(--paper); stroke-width:1.5}
+#bpSvg .link-lab{font-size:9px; letter-spacing:1px; fill:var(--dimline); stroke:var(--paper); stroke-width:3px}
+#bpSvg .th1{font-size:14px; letter-spacing:3px; font-weight:600}
+#bpSvg .th{font-size:10px; letter-spacing:1.5px; font-weight:600}
+#bpSvg .td,#bpSvg .note{font-size:10.5px; letter-spacing:.6px}
+#bpSvg .tk{font-size:9.5px; letter-spacing:1.5px; fill:var(--dimline)}
+#bpSvg .tv{font-size:12px; letter-spacing:1px}
+#bpSvg .warn{fill:#ffd36e}
+#bpSvg .disc{font-size:10px; letter-spacing:1px; fill:var(--dimline)}
+#bpSvg .progress{fill:var(--line)}
+#bpSvg .arrowhead{fill:var(--line)}
+/* links: wire solid, bolt/fits dashed, plug dotted, pipe double line, flow moving */
+#bpSvg .link{transition:opacity .4s}
+#bpSvg .link.dim{opacity:.13}
+#bpSvg .how-bolt .ink,#bpSvg .how-fits .ink{stroke-dasharray:7 5; stroke-width:1.1}
+#bpSvg .how-plug .ink{stroke-dasharray:1.5 4.5; stroke-width:2.2}
+#bpSvg .how-flow .ink{stroke-dasharray:10 6; animation:bp-flow 1.1s linear infinite}
+#bpSvg .pipe-outer{stroke-width:7}
+#bpSvg .pipe-inner{fill:none; stroke:var(--paper); stroke-width:4.2}
+/* parts */
+#bpSvg .part{cursor:pointer; transition:opacity .45s; outline:none}
+#bpSvg .part .hit{fill:transparent}
+#bpSvg .part .focus-box{fill:none; stroke:none}
+#bpSvg .part.dim{opacity:.2}
+#bpSvg .part.on{filter:url(#bpGlow)}
+#bpSvg .part.on .ink{stroke:#fff; stroke-width:2}
+#bpSvg .part.on .focus-box,#bpSvg .part:focus-visible .focus-box{fill:rgba(255,255,255,.07); stroke:rgba(255,255,255,.55); stroke-dasharray:3 3}
+#bpSvg .trow{cursor:pointer}
+#bpSvg .trow-bg{fill:transparent}
+#bpSvg .trow:hover .trow-bg,#bpSvg .trow.on .trow-bg{fill:rgba(255,255,255,.12)}
+/* drawn on, part by part, like Titan is sketching it */
+#bpSvg.drawn .part .ink:not(.dash){stroke-dasharray:1; stroke-dashoffset:1; animation:bp-draw 1s ease forwards; animation-delay:var(--d)}
+#bpSvg.drawn .part .ink.dash,#bpSvg.drawn .part text,#bpSvg.drawn .part .balloon,#bpSvg.drawn .part .sdot{opacity:0; animation:bp-fade .5s ease forwards; animation-delay:calc(var(--d) + .55s)}
+#bpSvg.drawn .links{opacity:0; animation:bp-fade .9s ease forwards; animation-delay:var(--links-d, 1.2s)}
+@media (prefers-reduced-motion:reduce){
+  #bpSvg.drawn .part .ink:not(.dash),#bpSvg.drawn .part .ink.dash,#bpSvg.drawn .part text,#bpSvg.drawn .part .balloon,
+  #bpSvg.drawn .part .sdot,#bpSvg.drawn .links,#bpSvg .how-flow .ink{animation:none; opacity:1; stroke-dashoffset:0}
+  #bpSvg.drawn .part .ink:not(.dash){stroke-dasharray:none}
 }
-.garage .g-head > b, .garage .g-title, .garage #gSub{font-family:var(--hand)}
-.garage .g-head > b{color:var(--ink); letter-spacing:.25em; font-size:14px}
-.garage .pill, .garage .btn{background:rgba(244,234,210,.7); color:var(--ink); border-color:rgba(70,45,22,.45)}
-.garage .pill:hover{color:#000; border-color:var(--ink)}
-.garage .pill.active{background:var(--ink); color:#f3e8cf; border-color:var(--ink); box-shadow:none}
-.garage select{background:rgba(244,234,210,.85) !important; color:var(--ink) !important; border-color:rgba(70,45,22,.45) !important}
-.garage .g-view{background:none; border:1.5px solid var(--ink); box-shadow:inset 0 0 0 5px #ece0c4, inset 0 0 0 6px rgba(58,39,22,.55)}
-.garage .g-row{color:var(--ice); border-bottom-color:rgba(70,45,22,.15)}
-.garage .g-row:hover,.garage .g-row.on{background:rgba(138,59,28,.12)}
-.garage .g-step.on{background:rgba(138,59,28,.08); border-color:var(--ink)}
-.garage .g-step p,.garage .g-move p,.garage #gNote p{color:#4a3726}
-.garage #gNote{background:rgba(244,234,210,.95); border-color:var(--ink); box-shadow:3px 3px 0 rgba(58,39,22,.25)}
-.garage .g-legend{color:var(--ink)}
-/* hand-lettered callouts */
-.garage .g-label{background:none; color:var(--ink); border:0; padding:2px 0; font-family:var(--hand); font-size:12px; letter-spacing:0; backdrop-filter:none; overflow:visible}
-.garage .g-label .n{display:inline-grid; place-items:center; width:19px; height:19px; margin-right:6px; border:1.3px solid var(--ink); border-radius:50%; font-size:10px; font-family:Georgia,serif; vertical-align:middle}
-.garage .g-label.right .n{margin:0 0 0 6px}
-.garage .g-label.on,.garage .g-label:hover{background:none; color:var(--accent); text-decoration:underline}
-.garage .g-label i{display:inline-block; width:7px; height:7px; border-radius:50%; margin:0 5px; vertical-align:middle}
-/* parts schedule, insets, title block */
-.g-sheet-box{position:absolute; background:rgba(244,234,210,.88); border:1.3px solid var(--ink); color:var(--ink); pointer-events:none}
-#gSchedule{left:14px; top:44px; width:290px; font-size:10.5px; font-family:var(--hand)}
-#gSchedule b{display:block; text-align:center; letter-spacing:.2em; border-bottom:1.3px solid var(--ink); padding:3px; font-size:11px}
-#gSchedule table{width:100%; border-collapse:collapse}
-#gSchedule td{border-top:1px solid rgba(58,39,22,.3); padding:2px 5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:170px}
-#gSchedule td:first-child{width:22px; text-align:center; border-right:1px solid rgba(58,39,22,.3); font-family:Georgia,serif}
-#gSchedule td:last-child{text-align:right}
-.g-inset{pointer-events:none; background:rgba(244,234,210,.55)}
-#gInsetSide{left:14px; bottom:76px; width:230px; height:140px}
-#gInsetFront{left:256px; bottom:76px; width:190px; height:140px}
-.garage .g-label{width:auto; white-space:nowrap}
-.g-inset span{position:absolute; left:6px; bottom:3px; font-family:var(--hand); font-size:10px; letter-spacing:.15em}
-#gTitleBlock{right:14px; bottom:14px; width:300px; font-family:var(--hand); font-size:10.5px}
-#gTitleBlock div{display:flex; justify-content:space-between; gap:8px; padding:2px 7px; border-top:1px solid rgba(58,39,22,.35)}
-#gTitleBlock div:first-child{border-top:0; justify-content:center; font-size:14px; letter-spacing:.3em; padding:4px}
-.garage #gDisclaimer{color:#6b5440; left:14px; right:330px}
-.garage #gAssetNote{color:#6b5440; top:auto; bottom:30px}
-.garage .g-flow-legend{bottom:48px; left:14px}
-.garage.mapping #gSchedule,.garage.mapping .g-inset,.garage.mapping #gTitleBlock{display:none}
-/* clean by default: drawing extras only with SHEET on; tools tucked into a menu */
-.garage:not(.sheet-on) #gSchedule,.garage:not(.sheet-on) .g-inset,.garage:not(.sheet-on) #gTitleBlock,
-.garage:not(.sheet-on) .g-legend:not(.g-flow-legend){display:none}
-.garage .g-head{position:relative}
-.g-tools{position:absolute; right:0; top:100%; z-index:3; display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px;
-  max-width:min(560px,94vw); padding:10px 12px; background:rgba(244,234,210,.97); border:1.3px solid var(--ink); box-shadow:3px 3px 0 rgba(58,39,22,.2)}
-.g-tools[hidden]{display:none}
-.g-tools label{display:flex; align-items:center; gap:8px; font-size:9px; letter-spacing:.3em; color:var(--dim)}
-.g-tools input[type=range]{accent-color:var(--accent); width:120px}
+@keyframes bp-draw{to{stroke-dashoffset:0}}
+@keyframes bp-fade{to{opacity:1}}
+@keyframes bp-flow{to{stroke-dashoffset:-32}}
+/* the pointer (Clicky-style triangle) */
+#bpSvg .pointer.hidden{display:none}
+#bpSvg .pointer-shape{fill:#ff3b30; stroke:#fff; stroke-width:1.8; stroke-linejoin:round; filter:drop-shadow(0 0 6px rgba(255,59,48,.85))}
+.bp-callout{position:absolute; left:0; top:0; z-index:2; width:min(320px,74vw); padding:10px 12px; background:rgba(6,30,66,.94);
+  border:1.5px solid var(--line); box-shadow:4px 4px 0 rgba(0,0,0,.25); pointer-events:auto; transition:transform .12s linear}
+.bp-callout[hidden]{display:none}
+.bp-callout p{margin:6px 0 0; font-size:13px; line-height:1.45; color:#dbe9ff; font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.bp-c-head{display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:10.5px; letter-spacing:.25em; color:var(--dimline)}
+.bp-c-title{margin-top:4px; font-size:15px; letter-spacing:.06em; font-weight:600; text-transform:uppercase}
+.bp-c-warn{color:#ffd36e !important}
+.bp-c-danger{color:#ffb3ad !important; border-left:3px solid #ff6b60; padding-left:8px; margin-top:8px !important}
+.bp-who.danger{color:#ff8f86; border-color:#ff8f86}
+.bp-step .bp-c-danger{margin:0 10px 8px !important}
+.bp-c-dim{color:var(--dimline) !important; font-size:11.5px !important}
+.bp-who{display:inline-block; padding:1px 6px; border:1px solid var(--dimline); font-size:9px; letter-spacing:.2em; color:var(--dimline)}
+.bp-who.mech{color:#ffd36e; border-color:#ffd36e}
+.bp-controls{position:absolute; left:50%; bottom:12px; transform:translateX(-50%); z-index:3; display:flex; align-items:center; gap:6px;
+  padding:6px; background:rgba(6,30,66,.85); border:1px solid var(--dimline)}
+.bp-controls .pill{min-width:44px}
+#bpCount{min-width:96px; text-align:center; font-size:10.5px; letter-spacing:.22em; color:var(--dimline)}
+#bpRetry{position:absolute; left:50%; top:62%; transform:translateX(-50%); z-index:3}
+#bpRetry[hidden]{display:none}
+.bp-side{display:flex; flex-direction:column; min-height:0; padding:10px; background:rgba(6,30,66,.5); border:1px solid var(--faintline)}
+.bp-tabs{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:10px}
+.bp-tabs .pill[hidden]{display:none}
+.bp-pane{flex:1; min-height:0; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--faintline) transparent; font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.bp-pane[hidden]{display:none}
+.bp-summary{margin:0 0 10px; font-size:12.5px; line-height:1.5; color:#cfe0f7}
+.bp-step{border:1px solid var(--faintline); margin-bottom:7px}
+.bp-step.on{border-color:var(--line); background:rgba(255,255,255,.07)}
+.bp-step-h{display:flex; align-items:center; gap:9px; width:100%; padding:9px 10px; background:none; border:0; color:var(--line); text-align:left; font:inherit; font-size:13px; cursor:pointer}
+.bp-step-h b{flex:1; font-weight:600}
+.bp-num{display:inline-grid; place-items:center; flex:none; width:22px; height:22px; border:1.3px solid var(--line); border-radius:50%; font-size:11px; font-family:var(--bpfont)}
+.bp-step p{margin:0 10px 8px; font-size:12.5px; line-height:1.5; color:#dbe9ff}
+.bp-check{display:flex; gap:8px; align-items:flex-start; margin:5px 10px; font-size:12.5px; cursor:pointer}
+.bp-check input{accent-color:#ffd36e; margin-top:2px}
+.bp-row{display:grid; grid-template-columns:24px 1fr auto; gap:9px; align-items:center; width:100%; padding:7px 4px; background:none; border:0;
+  border-bottom:1px solid var(--faintline); color:var(--line); text-align:left; font:inherit; font-size:12.5px; cursor:pointer}
+.bp-row:hover{background:rgba(255,255,255,.07)}
+.bp-meta{font-size:10px; letter-spacing:.15em; color:var(--dimline); font-family:var(--bpfont)}
+.bp-item{display:flex; justify-content:space-between; gap:10px; font-size:12.5px; padding:5px 0; border-bottom:1px solid var(--faintline)}
+.bp-item.warn{color:#ffd36e}
+.bp-price{font-family:var(--bpfont)}
+.bp-totals{display:flex; gap:14px; font-size:11px; letter-spacing:.2em; margin:6px 0; font-family:var(--bpfont); color:#ffd36e}
+.bp-move{border-left:2px solid var(--line); padding:3px 0 3px 10px; margin:7px 0; font-size:12.5px}
+.bp-move p{margin:4px 0 0; color:#cfe0f7; line-height:1.45}
+.builder .sub-h{margin:12px 0 4px; font-size:10px; letter-spacing:.3em; color:var(--dimline); font-family:var(--bpfont)}
 @media (max-width:900px){
-  .g-inset,#gSchedule,#gTitleBlock{display:none}
-  .garage #gDisclaimer{right:14px}
-  .garage .g-label{font-size:11px}
-}
-@media (max-width:900px){
-  .g-body{grid-template-columns:1fr; grid-template-rows:46vh minmax(0,1fr)}
-  .g-head input[type=range]{width:90px}
+  .builder{padding:calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom))}
+  .builder{overflow-y:auto}
+  .bp-body{grid-template-columns:minmax(0,1fr); grid-template-rows:60vh auto; gap:10px; padding-top:10px; flex:none}
+  .bp-head{gap:8px}
+  .bp-head select{font-size:16px; max-width:100%; min-width:0; flex:1}
+  .bp-head .spacer,.bp-sub{display:none}
+  .bp-ask{order:10; width:100%} .bp-ask input{flex:1; min-width:0; width:auto; font-size:16px}
+  .bp-controls{left:6px; right:6px; bottom:6px; transform:none; justify-content:space-between; gap:4px; padding:4px}
+  .bp-controls .pill{min-width:0; padding:9px 10px; font-size:10px; letter-spacing:.1em}
+  #bpCount{display:none}
+  .bp-callout{width:min(300px,calc(100vw - 48px))}
+  .bp-callout p{font-size:12.5px}
+  .bp-side{min-height:50vh}
 }
 
 /* ---- login / offline overlay ---- */
@@ -455,62 +463,48 @@ body.garage-open{overflow:hidden}
   </div>
 </div>
 
-<!-- garage: 3D models, parts and build steps (logic in /garage.js) -->
-<div class="garage" id="garage" hidden>
-  <div class="g-head">
-    <b>GARAGE</b>
-    <select id="gModel" aria-label="Guide"></select>
+<!-- builder: ask how to make something, get a blueprint you can follow (logic in /builder.js) -->
+<div class="builder" id="builder" hidden>
+  <div class="bp-head">
+    <b class="bp-brand">BUILDER</b>
+    <select id="bpGuide" aria-label="Blueprint"></select>
+    <span class="bp-sub" id="bpSub"></span>
     <span class="spacer"></span>
-    <button class="pill" type="button" id="gPlay">▶ PLAY</button>
-    <button class="pill" type="button" id="gLabelsBtn">LABELS: KEY</button>
-    <button class="pill" type="button" id="gSheetBtn">SHEET</button>
-    <button class="pill" type="button" id="gToolsBtn" aria-expanded="false">TOOLS ▾</button>
-    <button class="pill" type="button" id="gClose">CLOSE ✕</button>
-    <div class="g-tools" id="gTools" hidden>
-      <select id="gAsset" aria-label="3D file"></select>
-      <button class="pill" type="button" id="gAddFile" title="Add a .glb, .gltf or .obj file (or drag one onto the view)">＋ 3D FILE</button>
-      <input type="file" id="gFile" accept=".glb,.gltf,.obj" hidden>
-      <button class="pill" type="button" id="gMapBtn" hidden>MAP PARTS</button>
-      <button class="pill" type="button" id="gFlows" hidden>FLOWS</button>
-      <label>EXPLODE <input type="range" id="gExplode" min="0" max="100" value="60"></label>
-      <label>CUTAWAY <input type="range" id="gCut" min="0" max="90" value="0"></label>
-      <button class="pill" type="button" id="gFit">RE-CENTRE</button>
-      <button class="pill" type="button" id="gExport" hidden>EXPORT STL</button>
-    </div>
-    <div id="gSub"></div>
+    <form class="bp-ask" id="bpAsk" autocomplete="off">
+      <input id="bpAskInput" type="text" maxlength="200" enterkeyhint="go" placeholder="how do I…  e.g. wire a boost gauge" aria-label="What do you want to build?">
+      <button class="pill" type="submit">DRAFT</button>
+    </form>
+    <button class="pill" type="button" id="bpExport" hidden>EXPORT STL</button>
+    <button class="pill" type="button" id="bpDelete" hidden>DELETE</button>
+    <button class="pill" type="button" id="bpClose">CLOSE ✕</button>
   </div>
-  <div class="g-body">
-    <div class="g-view">
-      <canvas id="gCanvas" aria-label="3D model: drag to rotate, pinch or scroll to zoom, tap a part to select it"></canvas>
-      <svg id="gLines" aria-hidden="true"></svg>
-      <div id="gLabels"></div>
-      <div class="g-legend">
-        <span><i style="background:#2f7a4a"></i>OWNED</span><span><i style="background:#b07418"></i>CONSIDERING</span>
-        <span><i style="background:#b0301c"></i>CHECK</span><span><i style="background:#c2561a"></i>NEEDED</span><span><i style="background:#3a2716"></i>DONE</span>
+  <div class="bp-body">
+    <div class="bp-view" id="bpView">
+      <svg id="bpSvg" role="img" aria-label="Blueprint: drag to move, pinch or scroll to zoom, tap a part for details"></svg>
+      <div class="bp-callout" id="bpCallout" hidden></div>
+      <button class="pill" type="button" id="bpRetry" hidden>TRY AGAIN</button>
+      <div class="bp-controls">
+        <button class="pill" type="button" id="bpPrev" aria-label="Previous step">◀</button>
+        <button class="pill" type="button" id="bpPlay">▶ PLAY</button>
+        <button class="pill" type="button" id="bpNext" aria-label="Next step">▶▶</button>
+        <span id="bpCount"></span>
+        <button class="pill" type="button" id="bpFit">OVERVIEW</button>
+        <button class="pill" type="button" id="bpMic" title="Talk to Titan: say next, back, repeat, or ask how to make something">MIC</button>
       </div>
-      <div class="g-legend g-flow-legend" id="gFlowLegend"></div>
-      <div class="g-sheet-box" id="gSchedule"><b>PARTS SCHEDULE</b><table id="gScheduleRows"></table></div>
-      <div class="g-sheet-box g-inset" id="gInsetSide"><span>SIDE ELEVATION</span></div>
-      <div class="g-sheet-box g-inset" id="gInsetFront"><span>FRONT ELEVATION</span></div>
-      <div class="g-sheet-box" id="gTitleBlock"></div>
-      <div id="gNote" hidden></div>
-      <div id="gAssetNote"></div>
-      <div id="gDisclaimer"></div>
     </div>
-    <div class="g-side">
-      <div class="g-tabs">
+    <div class="bp-side">
+      <div class="bp-tabs">
         <button class="pill active" type="button" data-tab="Steps">STEPS</button>
         <button class="pill" type="button" data-tab="Parts">PARTS</button>
-        <button class="pill" type="button" data-tab="Project">PROJECT</button>
+        <button class="pill" type="button" data-tab="Project" id="bpTabProject">CAR</button>
       </div>
-      <div class="g-pane" id="gParts" hidden></div>
-      <div class="g-pane" id="gSteps"></div>
-      <div class="g-pane" id="gProject" hidden></div>
-      <div class="g-pane" id="gMap"></div>
+      <div class="bp-pane" id="bpSteps"></div>
+      <div class="bp-pane" id="bpParts" hidden></div>
+      <div class="bp-pane" id="bpProject" hidden></div>
     </div>
   </div>
 </div>
-<script type="module" src="/garage.js"></script>
+<script type="module" src="/builder.js"></script>
 
 <!-- hidden wake toggle keeps the old id; the wheel's WAKE segment drives it -->
 <button type="button" id="wakeToggle" hidden>WAKE WORD OFF</button>
@@ -557,12 +551,12 @@ body.garage-open{overflow:hidden}
   const history = []; let histPos = 0;
 
   // ---------- C2: talking to server.py ----------
-  function openGarage(model) {
+  function openBuilder(guide) {
     if (!state.token) return;
-    if (window.TitanGarage) window.TitanGarage.open(model);
-    else log("err", "The 3D garage is still loading. Try again in a moment.");
+    if (window.TitanBuilder) window.TitanBuilder.open(guide);
+    else log("err", "The builder is still loading. Try again in a moment.");
   }
-  window.titanApi = (path, body) => api(path, body);      // used by /garage.js
+  window.titanApi = (path, body) => api(path, body);      // used by /builder.js
   window.titanToken = () => state.token || "";
   async function api(path, body) {
     const opts = { headers: { "X-Titan-Token": state.token || "" } };
@@ -711,11 +705,30 @@ body.garage-open{overflow:hidden}
     playQueue();
   }
   function speak(text) { stopSpeech(); speakQueued(text); }
+  // used by /builder.js to narrate steps; say() resolves when Titan stops talking
+  window.titanSpeech = {
+    enabled: () => !state.muted,
+    stop: () => stopSpeech(),
+    say(text) {
+      speak(text);
+      const t0 = Date.now();
+      return new Promise((resolve) => {
+        const check = () => {
+          const idle = !speech.playing && !state.speaking && !speech.queue.length && !(synth && synth.speaking);
+          if ((Date.now() - t0 > 700 && idle) || Date.now() - t0 > 90000) resolve();
+          else setTimeout(check, 200);
+        };
+        setTimeout(check, 300);
+      });
+    },
+  };
 
   // ---------- C6: sending commands (reply streams in sentence by sentence) ----------
   async function send(text) {
     text = text.trim();
     if (!text || state.thinking) return;
+    // "next", "back", "repeat", "stop" steer an open blueprint without a server round trip
+    if (window.TitanBuilder && window.TitanBuilder.isOpen() && window.TitanBuilder.command(text)) return;
     wakeUp();
     history.push(text); histPos = history.length;
     log("you", text);
@@ -756,7 +769,7 @@ body.garage-open{overflow:hidden}
       if (done.error) { log("err", done.error); return; }
       if (liveRow) liveRow.textContent = done.reply;
       else { log("titan", done.reply); speakQueued(done.speech || done.reply); }
-      if (done.ui && done.ui.open === "garage") openGarage(done.ui.model);
+      if (done.ui && done.ui.open === "builder") openBuilder(done.ui.guide);
       if (done.keep_running === false) shutdown();
     } catch (e) {
       log("err", "Lost contact with the Titan server. Is the terminal still running?");
@@ -1124,7 +1137,7 @@ body.garage-open{overflow:hidden}
     { label: "SYSTEM",  icon: "cpu",   cmd: "run a system diagnosis" },
     { label: "VOICE",   icon: "mic",   action: "listen" },
     { label: "WAKE",    icon: "wave",  action: "wake" },
-    { label: "GARAGE",  icon: "cube",  action: "garage" },
+    { label: "BUILD",   icon: "cube",  action: "builder" },
   ];
   const W = { cx: 250, cy: 250, rIn: 152, rOut: 238 };
   function polar(r, deg) { const a = (deg - 90) * Math.PI / 180; return [W.cx + r * Math.cos(a), W.cy + r * Math.sin(a)]; }
@@ -1157,7 +1170,7 @@ body.garage-open{overflow:hidden}
         if (!state.token) return;
         if (s.action === "listen") listen();
         else if (s.action === "wake") { wakeUp(); toggleWake(); }
-        else if (s.action === "garage") openGarage("e87-front-end");
+        else if (s.action === "builder") openBuilder();
         else send(s.cmd);
       };
       g.addEventListener("click", run);
